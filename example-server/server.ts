@@ -9,7 +9,13 @@ app.use(express.json()); // Middleware to parse JSON bodies
 
 const route = makeRouteHandlerCreator<typeof PublicApiDefinition>();
 export const PublicApiHandlers: SpecificRouteHandler<typeof PublicApiDefinition>[] = [
-    route('api', 'ping', async (req, res) => {
+    route('common', 'ping', async (req, res) => {
+        res.respond(200, 'pong')
+    }),
+    route('status', 'probe1', async (req, res) => {
+        res.respond(200, 'pong')
+    }),
+    route('status', 'probe2', async (req, res) => {
         res.respond(200, 'pong')
     }),
 ]

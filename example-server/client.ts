@@ -10,7 +10,7 @@ async function runClientExample(): Promise<void> {
         new FetchHttpClientAdapter()
     );
     // Get a user
-    await apiClient.callApi('api', 'ping',
+    await apiClient.callApi('common', 'ping',
         {},
         {
             200: (payload) => {
