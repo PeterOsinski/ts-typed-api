@@ -7,7 +7,7 @@ import {
     type RouteSchema,
     type UnifiedError,
     type InferDataFromUnifiedResponse
-} from "./router/definition";
+} from "./definition";
 import { type ZodTypeAny } from 'zod';
 
 // --- HTTP Client Adapter Interfaces ---
@@ -88,9 +88,9 @@ export class FetchHttpClientAdapter implements HttpClientAdapter {
 // Now generic over TActualDef
 type GetRoute<
     TActualDef extends BaseApiDefinitionSchema,
-    TDomain extends keyof TActualDef,
-    K extends ApiRouteKey<TActualDef, TDomain>
-> = TActualDef[TDomain][K] extends infer Rte ? Rte extends RouteSchema ? Rte : never : never;
+    TDomain extends keyof TActualDef['endpoints'],
+    K extends keyof TActualDef['endpoints'][TDomain]
+> = TActualDef['endpoints'][TDomain][K] extends infer Rte ? Rte extends RouteSchema ? Rte : never : never;
 
 // Helper to safely get the 'responses' record from a RouteSchema
 type GetResponses<Rte extends RouteSchema> = Rte['responses'];
@@ -111,8 +111,8 @@ type ApiCallResultPayload<S_STATUS_NUM extends number, ActualSchema extends ZodT
 
 export type ApiCallResult<
     TActualDef extends BaseApiDefinitionSchema,
-    TDomain extends keyof TActualDef,
-    TRouteKey extends ApiRouteKey<TActualDef, TDomain>,
+    TDomain extends keyof TActualDef['endpoints'],
+    TRouteKey extends keyof TActualDef['endpoints'][TDomain],
     CurrentRoute extends RouteSchema = GetRoute<TActualDef, TDomain, TRouteKey>,
     ResponsesMap = GetResponses<CurrentRoute>
 > = ResponsesMap extends Record<any, ZodTypeAny> // Ensure ResponsesMap is a record
@@ -133,8 +133,8 @@ export type ApiCallResult<
  */
 export type CallApiOptions<
     TActualDef extends BaseApiDefinitionSchema, // Made generic over TActualDef
-    TDomainParam extends keyof TActualDef,
-    TRouteKeyParam extends ApiRouteKey<TActualDef, TDomainParam>
+    TDomainParam extends keyof TActualDef['endpoints'],
+    TRouteKeyParam extends keyof TActualDef['endpoints'][TDomainParam]
 > = {
     params?: ApiClientParams<TActualDef, TDomainParam, TRouteKeyParam>;
     query?: ApiClientQuery<TActualDef, TDomainParam, TRouteKeyParam>;
@@ -205,6 +205,19 @@ export class ApiClient<TActualDef extends BaseApiDefinitionSchema> { // Made gen
     }
 
     /**
+     * Gets the full base URL including any prefix from the API definition.
+     * @returns The base URL with prefix applied.
+     */
+    private getBaseUrlWithPrefix(): string {
+        const prefix = this.apiDefinitionObject.prefix;
+        if (prefix) {
+            const cleanPrefix = prefix.startsWith('/') ? prefix : `/${prefix}`;
+            return this.baseUrl + cleanPrefix.replace(/\/$/, '');
+        }
+        return this.baseUrl;
+    }
+
+    /**
      * Makes an API call to a specified domain and route.
      * @template TDomain The domain (controller) of the API.
      * @template TRouteKey The key of the route within the domain.
@@ -217,8 +230,8 @@ export class ApiClient<TActualDef extends BaseApiDefinitionSchema> { // Made gen
      * @throws Error if the route configuration is invalid, a network error occurs, an unhandled status code is received, or JSON parsing fails.
      */
     public async callApi<
-        TDomain extends keyof TActualDef,
-        TRouteKey extends ApiRouteKey<TActualDef, TDomain>,
+        TDomain extends keyof TActualDef['endpoints'],
+        TRouteKey extends keyof TActualDef['endpoints'][TDomain],
         TInferredHandlers extends {
             [KStatus in ApiCallResult<TActualDef, TDomain, TRouteKey>['status']]: (
                 payload: Extract<ApiCallResult<TActualDef, TDomain, TRouteKey>, { status: KStatus }>
@@ -230,7 +243,7 @@ export class ApiClient<TActualDef extends BaseApiDefinitionSchema> { // Made gen
         callData: CallApiOptions<TActualDef, TDomain, TRouteKey> | undefined, // Uses TActualDef
         handlers: TInferredHandlers
     ): Promise<{ [SKey in keyof TInferredHandlers]: TInferredHandlers[SKey] extends (...args: any[]) => infer R ? R : never }[keyof TInferredHandlers]> {
-        const routeInfo = this.apiDefinitionObject[domain][routeKey] as RouteSchema; // Accessing from TActualDef instance
+        const routeInfo = this.apiDefinitionObject.endpoints[domain as string][routeKey as string] as RouteSchema; // Accessing from TActualDef instance
 
         if (!routeInfo || typeof routeInfo.path !== 'string') {
             throw new Error(`API route configuration ${String(domain)}.${String(routeKey)} not found or invalid.`);
@@ -246,7 +259,7 @@ export class ApiClient<TActualDef extends BaseApiDefinitionSchema> { // Made gen
             }
         }
 
-        const url = new URL(this.baseUrl + urlPath);
+        const url = new URL(this.getBaseUrlWithPrefix() + urlPath);
 
         if (callData?.query) {
             const queryParams = callData.query as Record<string, any>;

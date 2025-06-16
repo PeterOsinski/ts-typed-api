@@ -10,8 +10,8 @@ import {
 // Typed Request for Express handlers, now generic over TDef
 export type TypedRequest<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef,
-    TRouteKey extends keyof TDef[TDomain], // Using direct keyof for simplicity here
+    TDomain extends keyof TDef['endpoints'],
+    TRouteKey extends keyof TDef['endpoints'][TDomain], // Using direct keyof for simplicity here
     // Params, ReqBody, Query types are now derived using TDef
     P extends ApiParams<TDef, TDomain, TRouteKey> = ApiParams<TDef, TDomain, TRouteKey>,
     ReqBody extends ApiBody<TDef, TDomain, TRouteKey> = ApiBody<TDef, TDomain, TRouteKey>,
@@ -24,18 +24,18 @@ export type TypedRequest<
 // Type for the data argument of res.respond
 type ResponseDataForStatus<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef,
-    TRouteName extends keyof TDef[TDomain],
-    TStatus extends keyof TDef[TDomain][TRouteName]['responses'] & number // Ensure TStatus is a numeric key
-> = InferDataFromUnifiedResponse<TDef[TDomain][TRouteName]['responses'][TStatus]>;
+    TDomain extends keyof TDef['endpoints'],
+    TRouteName extends keyof TDef['endpoints'][TDomain],
+    TStatus extends keyof TDef['endpoints'][TDomain][TRouteName]['responses'] & number // Ensure TStatus is a numeric key
+> = InferDataFromUnifiedResponse<TDef['endpoints'][TDomain][TRouteName]['responses'][TStatus]>;
 
 // Type for the res.respond method, now generic over TDef
 type RespondFunction<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef,
-    TRouteName extends keyof TDef[TDomain]
+    TDomain extends keyof TDef['endpoints'],
+    TRouteName extends keyof TDef['endpoints'][TDomain]
 > = <
-    TStatusLocal extends keyof TDef[TDomain][TRouteName]['responses'] & number
+    TStatusLocal extends keyof TDef['endpoints'][TDomain][TRouteName]['responses'] & number
 >(
     status: TStatusLocal,
     data: ResponseDataForStatus<TDef, TDomain, TRouteName, TStatusLocal>
@@ -44,8 +44,8 @@ type RespondFunction<
 // Typed Response for Express handlers, now generic over TDef
 export interface TypedResponse<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef,
-    TRouteName extends keyof TDef[TDomain],
+    TDomain extends keyof TDef['endpoints'],
+    TRouteName extends keyof TDef['endpoints'][TDomain],
     L extends Record<string, any> = Record<string, any>
 > extends express.Response<any, L> {
     respond: RespondFunction<TDef, TDomain, TRouteName>;
@@ -56,8 +56,8 @@ export interface TypedResponse<
 // This function is called within a context where TDef is known (e.g. specific handlers file)
 export function createRouteHandler<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef,
-    TRouteKey extends keyof TDef[TDomain] // Using direct keyof for simplicity
+    TDomain extends keyof TDef['endpoints'],
+    TRouteKey extends keyof TDef['endpoints'][TDomain] // Using direct keyof for simplicity
 >(
     domain: TDomain,
     routeKey: TRouteKey,
@@ -76,8 +76,8 @@ export function createRouteHandler<
 // Factory function to create a route handler creator for a specific API definition
 export function makeRouteHandlerCreator<TDef extends ApiDefinitionSchema>() {
     return function createHandler<
-        TDomain extends keyof TDef,
-        TRouteKey extends keyof TDef[TDomain]
+        TDomain extends keyof TDef['endpoints'],
+        TRouteKey extends keyof TDef['endpoints'][TDomain]
     >(
         domain: TDomain,
         routeKey: TRouteKey,

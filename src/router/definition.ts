@@ -120,8 +120,11 @@ export interface RouteSchema {
 }
 
 // Define the structure for the entire API definition object
-// It's a record of domains, where each domain is a record of route schemas
-export type ApiDefinitionSchema = Record<string, Record<string, RouteSchema>>;
+// Now includes an optional prefix and endpoints record
+export type ApiDefinitionSchema = {
+    prefix?: string;
+    endpoints: Record<string, Record<string, RouteSchema>>;
+};
 
 // Helper function to ensure the definition conforms to ApiDefinitionSchema
 // while preserving the literal types of the passed object.
@@ -136,15 +139,15 @@ export function createApiDefinition<T extends ApiDefinitionSchema>(definition: T
 // TDomain is a domain key within that API definition (e.g., 'users')
 export type ApiRouteKey<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef
-> = keyof TDef[TDomain];
+    TDomain extends keyof TDef['endpoints']
+> = keyof TDef['endpoints'][TDomain];
 
 // TRouteName is a route key within the specified TDomain of TDef (e.g., 'getUserById')
 export type ApiRoute<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef,
+    TDomain extends keyof TDef['endpoints'],
     TRouteName extends ApiRouteKey<TDef, TDomain>
-> = TDef[TDomain][TRouteName];
+> = TDef['endpoints'][TDomain][TRouteName];
 
 // Helper to extract data type from a unified response schema, handling potential null and void.
 // Also handles cases where the schema itself is z.void() (e.g., for 204 No Content not using the unified wrapper).
@@ -164,9 +167,9 @@ export type InferDataFromUnifiedResponse<S extends ZodTypeAny> =
 // This type might be less central if the client uses a discriminated union based on status code.
 export type ApiResponse<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef,
+    TDomain extends keyof TDef['endpoints'],
     TRouteName extends ApiRouteKey<TDef, TDomain>
-> = TDef[TDomain][TRouteName] extends { responses: infer R } // Check if 'responses' property exists
+> = TDef['endpoints'][TDomain][TRouteName] extends { responses: infer R } // Check if 'responses' property exists
     ? R extends { 200: infer R200 extends ZodTypeAny } ? InferDataFromUnifiedResponse<R200>
     : R extends { 201: infer R201 extends ZodTypeAny } ? InferDataFromUnifiedResponse<R201>
     : R extends { 204: infer R204 extends ZodTypeAny } ? InferDataFromUnifiedResponse<R204> // Handles 204 with z.void() or other
@@ -175,25 +178,25 @@ export type ApiResponse<
 
 export type ApiBody<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef,
+    TDomain extends keyof TDef['endpoints'],
     TRouteName extends ApiRouteKey<TDef, TDomain>
-> = TDef[TDomain][TRouteName] extends { body: infer B extends z.ZodTypeAny }
+> = TDef['endpoints'][TDomain][TRouteName] extends { body: infer B extends z.ZodTypeAny }
     ? z.infer<B>
     : Record<string, any>;
 
 export type ApiParams<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef,
+    TDomain extends keyof TDef['endpoints'],
     TRouteName extends ApiRouteKey<TDef, TDomain>
-> = TDef[TDomain][TRouteName] extends { params: infer P extends z.ZodTypeAny }
+> = TDef['endpoints'][TDomain][TRouteName] extends { params: infer P extends z.ZodTypeAny }
     ? z.infer<P>
     : Record<string, any>;
 
 export type ApiQuery<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef,
+    TDomain extends keyof TDef['endpoints'],
     TRouteName extends ApiRouteKey<TDef, TDomain>
-> = TDef[TDomain][TRouteName] extends { query: infer Q extends z.ZodTypeAny }
+> = TDef['endpoints'][TDomain][TRouteName] extends { query: infer Q extends z.ZodTypeAny }
     ? z.infer<Q>
     : Record<string, any>;
 
@@ -202,9 +205,9 @@ export type ApiQuery<
 // For client-side request body (data before Zod parsing/transformation on backend)
 export type ApiClientBody<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef,
+    TDomain extends keyof TDef['endpoints'],
     TRouteName extends ApiRouteKey<TDef, TDomain>
-> = TDef[TDomain][TRouteName] extends { body: infer B extends ZodTypeAny }
+> = TDef['endpoints'][TDomain][TRouteName] extends { body: infer B extends ZodTypeAny }
     ? z.input<B> // Use z.input for the type expected by the client to send
     : undefined; // If no body schema, body is undefined for the client
 
@@ -212,17 +215,17 @@ export type ApiClientBody<
 // z.input will give the type before backend transformations.
 export type ApiClientParams<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef,
+    TDomain extends keyof TDef['endpoints'],
     TRouteName extends ApiRouteKey<TDef, TDomain>
-> = TDef[TDomain][TRouteName] extends { params: infer P extends ZodTypeAny }
+> = TDef['endpoints'][TDomain][TRouteName] extends { params: infer P extends ZodTypeAny }
     ? z.input<P> // Use z.input for the type expected by the client to send
     : undefined;
 
 // For client-side query parameters (data before Zod parsing/transformation on backend)
 export type ApiClientQuery<
     TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef,
+    TDomain extends keyof TDef['endpoints'],
     TRouteName extends ApiRouteKey<TDef, TDomain>
-> = TDef[TDomain][TRouteName] extends { query: infer Q extends ZodTypeAny }
+> = TDef['endpoints'][TDomain][TRouteName] extends { query: infer Q extends ZodTypeAny }
     ? z.input<Q> // Use z.input for the type expected by the client to send
     : undefined;

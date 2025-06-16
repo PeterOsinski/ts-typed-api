@@ -6,11 +6,11 @@ import express from "express";
 // A handler entry, now generic over TDef
 export type SpecificRouteHandler<TDef extends ApiDefinitionSchema> = {
     // Pick a domain from TDef
-    [TDomain_ in keyof TDef]: {
+    [TDomain_ in keyof TDef['endpoints']]: {
         // Pick a route key from that domain
-        [TRouteKey_ in keyof TDef[TDomain_]]: ReturnType<typeof createRouteHandler<TDef, TDomain_, TRouteKey_>>;
-    }[keyof TDef[TDomain_]]; // Get the union of all possible handler objects for TDomain_
-}[keyof TDef]; // Get the union of all possible handler objects for TDef
+        [TRouteKey_ in keyof TDef['endpoints'][TDomain_]]: ReturnType<typeof createRouteHandler<TDef, TDomain_, TRouteKey_>>;
+    }[keyof TDef['endpoints'][TDomain_]]; // Get the union of all possible handler objects for TDomain_
+}[keyof TDef['endpoints']]; // Get the union of all possible handler objects for TDef
 
 // Register route handlers with Express, now generic over TDef
 export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
@@ -21,17 +21,22 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
     routeHandlers.forEach((specificHandlerIterationItem) => {
         const { domain, routeKey, handler } = specificHandlerIterationItem as any; // Use 'as any' for simplicity in destructuring union
 
-        const currentDomain = domain as keyof TDef;
-        const currentRouteKey = routeKey as keyof TDef[typeof currentDomain];
+        const currentDomain = domain as string;
+        const currentRouteKey = routeKey as string;
 
         // Use the passed apiDefinition object
-        const routeDefinition = apiDefinition[currentDomain][currentRouteKey] as RouteSchema;
+        const routeDefinition = apiDefinition.endpoints[currentDomain][currentRouteKey] as RouteSchema;
 
         if (!routeDefinition) {
             console.error(`Route definition not found for domain "${String(currentDomain)}" and routeKey "${String(currentRouteKey)}"`);
             return;
         }
         const { path, method } = routeDefinition;
+
+        // Apply prefix from API definition if it exists
+        const fullPath = apiDefinition.prefix
+            ? `${apiDefinition.prefix.startsWith('/') ? apiDefinition.prefix : `/${apiDefinition.prefix}`}${path}`.replace(/\/+/g, '/')
+            : path;
 
         const expressMiddleware = async (
             expressReq: express.Request,
@@ -65,7 +70,7 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
 
                 typedExpressRes.respond = (status, dataForResponse) => {
                     // Use the passed apiDefinition object
-                    const routeSchemaForHandler = apiDefinition[currentDomain][currentRouteKey] as RouteSchema;
+                    const routeSchemaForHandler = apiDefinition.endpoints[currentDomain][currentRouteKey] as RouteSchema;
                     const responseSchemaForStatus = routeSchemaForHandler.responses[status as number];
 
                     if (!responseSchemaForStatus) {
@@ -162,12 +167,12 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
         };
 
         switch (method.toUpperCase()) {
-            case 'GET': app.get(path, expressMiddleware); break;
-            case 'POST': app.post(path, expressMiddleware); break;
-            case 'PUT': app.put(path, expressMiddleware); break;
-            case 'DELETE': app.delete(path, expressMiddleware); break;
+            case 'GET': app.get(fullPath, expressMiddleware); break;
+            case 'POST': app.post(fullPath, expressMiddleware); break;
+            case 'PUT': app.put(fullPath, expressMiddleware); break;
+            case 'DELETE': app.delete(fullPath, expressMiddleware); break;
             default:
-                console.warn(`Unsupported HTTP method: ${method} for path ${path}`);
+                console.warn(`Unsupported HTTP method: ${method} for path ${fullPath}`);
         }
     });
 }
