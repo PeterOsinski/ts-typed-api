@@ -5,7 +5,7 @@ import { PublicApiDefinition } from './definitions';
 async function runClientExample(): Promise<void> {
     // Create an API client with the definition
     const apiClient = new ApiClient(
-        'http://localhost:3000',
+        'http://localhost:3001',
         PublicApiDefinition,
         new FetchHttpClientAdapter()
     );

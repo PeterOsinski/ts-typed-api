@@ -2,6 +2,7 @@ import express from 'express';
 import { PublicApiDefinition } from './definitions';
 import { makeRouteHandlerCreator } from '../src/router/router';
 import { registerRouteHandlers, SpecificRouteHandler } from '../src/router/handler';
+import { runClientExample } from './client';
 const app = express();
 const port = 3001;
 app.set('etag', false);
@@ -25,6 +26,8 @@ export const PublicApiHandlers: SpecificRouteHandler<typeof PublicApiDefinition>
 // or a merged API definition strategy.
 registerRouteHandlers(app, PublicApiDefinition, PublicApiHandlers);
 
-app.listen(port, () => {
+app.listen(port, async () => {
     console.log(`Backend server listening at http://localhost:${port}`);
+
+    // await runClientExample()
 });
