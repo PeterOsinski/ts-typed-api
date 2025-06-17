@@ -1,5 +1,5 @@
 {
-  "name": "ts-rpc",
+  "name": "ts-typed-api",
   "version": "0.1.0",
   "description": "A lightweight, type-safe RPC library for TypeScript with Zod validation",
   "main": "dist/index.js",
@@ -48,10 +48,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/ts-rpc.git"
+    "url": "https://github.com/yourusername/ts-typed-api.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/ts-rpc/issues"
+    "url": "https://github.com/yourusername/ts-typed-api/issues"
   },
-  "homepage": "https://github.com/yourusername/ts-rpc#readme"
+  "homepage": "https://github.com/yourusername/ts-typed-api#readme"
 }
