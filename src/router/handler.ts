@@ -12,11 +12,20 @@ export type SpecificRouteHandler<TDef extends ApiDefinitionSchema> = {
     }[keyof TDef['endpoints'][TDomain_]]; // Get the union of all possible handler objects for TDomain_
 }[keyof TDef['endpoints']]; // Get the union of all possible handler objects for TDef
 
+// Type for middleware function that receives endpoint information
+type EndpointMiddleware = (
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+    endpointInfo: { domain: string; routeKey: string }
+) => void | Promise<void>;
+
 // Register route handlers with Express, now generic over TDef
 export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
     app: express.Express,
     apiDefinition: TDef, // Pass the actual API definition object
-    routeHandlers: Array<SpecificRouteHandler<TDef>> // Use the generic handler type
+    routeHandlers: Array<SpecificRouteHandler<TDef>>, // Use the generic handler type
+    middlewares?: EndpointMiddleware[]
 ) {
     routeHandlers.forEach((specificHandlerIterationItem) => {
         const { domain, routeKey, handler } = specificHandlerIterationItem as any; // Use 'as any' for simplicity in destructuring union
@@ -166,11 +175,29 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
             }
         };
 
+        // Create middleware wrappers that include endpoint information
+        const middlewareWrappers: express.RequestHandler[] = [];
+        if (middlewares && middlewares.length > 0) {
+            middlewares.forEach(middleware => {
+                const wrappedMiddleware: express.RequestHandler = async (req, res, next) => {
+                    try {
+                        await middleware(req, res, next, { domain: currentDomain, routeKey: currentRouteKey });
+                    } catch (error) {
+                        next(error);
+                    }
+                };
+                middlewareWrappers.push(wrappedMiddleware);
+            });
+        }
+
+        // Register route with middlewares
+        const allHandlers = [...middlewareWrappers, expressMiddleware];
+
         switch (method.toUpperCase()) {
-            case 'GET': app.get(fullPath, expressMiddleware); break;
-            case 'POST': app.post(fullPath, expressMiddleware); break;
-            case 'PUT': app.put(fullPath, expressMiddleware); break;
-            case 'DELETE': app.delete(fullPath, expressMiddleware); break;
+            case 'GET': app.get(fullPath, ...allHandlers); break;
+            case 'POST': app.post(fullPath, ...allHandlers); break;
+            case 'PUT': app.put(fullPath, ...allHandlers); break;
+            case 'DELETE': app.delete(fullPath, ...allHandlers); break;
             default:
                 console.warn(`Unsupported HTTP method: ${method} for path ${fullPath}`);
         }

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { createApiDefinition, createResponses } from '../src/router/definition';
 
 export const PublicApiDefinition = createApiDefinition({
-    prefix: '/api/v1',
+    prefix: '/api/v1/public',
     endpoints: {
         status: {
             probe1: {
@@ -26,6 +26,23 @@ export const PublicApiDefinition = createApiDefinition({
                 path: '/ping',
                 responses: createResponses({
                     200: z.enum(["pong"]),
+                })
+            },
+        }
+    }
+})
+export const PrivateApiDefinition = createApiDefinition({
+    prefix: '/api/v1/private',
+    endpoints: {
+        user: {
+            get: {
+                method: 'GET',
+                path: '/user/:id',
+                params: z.object({
+                    id: z.string()
+                }),
+                responses: createResponses({
+                    200: z.enum(["ok"]),
                 })
             },
         }

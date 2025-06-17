@@ -3,6 +3,14 @@ import { ApiDefinitionSchema } from "./definition";
 import { registerRouteHandlers, SpecificRouteHandler } from "./handler";
 import { TypedRequest, TypedResponse } from "./router";
 
+// Type for middleware function that receives endpoint information
+export type EndpointMiddleware = (
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+    endpointInfo: { domain: string; routeKey: string }
+) => void | Promise<void>;
+
 // Type for a single handler function
 type HandlerFunction<
     TDef extends ApiDefinitionSchema,
@@ -55,10 +63,11 @@ function transformObjectHandlersToArray<TDef extends ApiDefinitionSchema>(
 export function registerHandlers<TDef extends ApiDefinitionSchema>(
     app: express.Express,
     apiDefinition: TDef,
-    objectHandlers: ObjectHandlers<TDef>
+    objectHandlers: ObjectHandlers<TDef>,
+    middlewares?: EndpointMiddleware[]
 ): void {
     const handlerArray = transformObjectHandlersToArray(objectHandlers);
-    registerRouteHandlers(app, apiDefinition, handlerArray);
+    registerRouteHandlers(app, apiDefinition, handlerArray, middlewares);
 }
 
 // Factory function to create a typed handler registrar for a specific API definition
@@ -67,8 +76,9 @@ export function makeObjectHandlerRegistrar<TDef extends ApiDefinitionSchema>(
 ) {
     return function (
         app: express.Express,
-        objectHandlers: ObjectHandlers<TDef>
+        objectHandlers: ObjectHandlers<TDef>,
+        middlewares?: EndpointMiddleware[]
     ): void {
-        registerHandlers(app, apiDefinition, objectHandlers);
+        registerHandlers(app, apiDefinition, objectHandlers, middlewares);
     };
 }

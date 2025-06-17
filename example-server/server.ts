@@ -1,12 +1,31 @@
 import express from 'express';
-import { PublicApiDefinition } from './definitions';
-import { registerHandlers } from '../src/router';
+import { PrivateApiDefinition, PublicApiDefinition } from './definitions';
+import { registerHandlers, EndpointMiddleware } from '../src/router';
 const app = express();
 const port = 3001;
 app.set('etag', false);
 app.use(express.json()); // Middleware to parse JSON bodies
 
-// Register all handlers at once
+// Example middlewares that receive endpoint information
+const loggingMiddleware: EndpointMiddleware = (req, res, next, endpointInfo) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - Endpoint: ${endpointInfo.domain}.${endpointInfo.routeKey}`);
+    next();
+};
+
+const authMiddleware: EndpointMiddleware = async (req, res, next, endpointInfo) => {
+    // Example auth logic
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.log(`Auth failed for ${endpointInfo.domain}.${endpointInfo.routeKey} - No valid auth header`);
+        res.status(401).json({ error: [{ field: "authorization", type: "general", message: "Unauthorized" }] });
+        return;
+    }
+
+    console.log(`Auth passed for ${endpointInfo.domain}.${endpointInfo.routeKey}`);
+    next();
+};
+
+// Register all handlers at once with middlewares
 registerHandlers(app, PublicApiDefinition, {
     // Define handlers using the object-based approach
     // TypeScript will enforce that all required handlers are present
@@ -29,11 +48,17 @@ registerHandlers(app, PublicApiDefinition, {
             res.respond(200, "pong");
         }
     }
-});
-// Register all route handlers
-// If example routes were also to be served, they'd need their own registration
-// or a merged API definition strategy.
-// registerRouteHandlers(app, PublicApiDefinition, PublicApiHandlers);
+}, [loggingMiddleware]); // Pass middlewares as 4th argument
+
+// Add another api definition
+registerHandlers(app, PrivateApiDefinition, {
+    user: {
+        get: async (req, res) => {
+            console.log('Fetching user', req.params.id);
+            res.respond(200, "ok");
+        }
+    }
+}, [authMiddleware]);
 
 app.listen(port, async () => {
     console.log(`Backend server listening at http://localhost:${port}`);
