@@ -1,20 +1,14 @@
-import { ApiClient, FetchHttpClientAdapter } from '../../src';
+import { ApiClient } from '../../src';
 import { PublicApiDefinition, PrivateApiDefinition } from './definitions';
 
 // Type-safe wrapper function with explicit return type
 async function runClientExample(): Promise<void> {
-    // Create API clients for both public and private APIs
-    const publicApiClient = new ApiClient(
-        'http://localhost:3001',
-        PublicApiDefinition,
-        new FetchHttpClientAdapter()
-    );
+    const baseUrl = 'http://localhost:3001';
 
-    const privateApiClient = new ApiClient(
-        'http://localhost:3001',
-        PrivateApiDefinition,
-        new FetchHttpClientAdapter()
-    );
+    // Create API clients for both public and private APIs
+    const publicApiClient = new ApiClient(baseUrl, PublicApiDefinition);
+
+    const privateApiClient = new ApiClient(baseUrl, PrivateApiDefinition);
 
     console.log('🚀 Starting comprehensive API client examples...\n');
 

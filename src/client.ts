@@ -162,7 +162,7 @@ export class ApiClient<TActualDef extends BaseApiDefinitionSchema> { // Made gen
     constructor(
         baseUrl: string,
         apiDefinitionObject: TActualDef, // Parameter uses TActualDef
-        adapter: HttpClientAdapter
+        adapter: HttpClientAdapter = new FetchHttpClientAdapter
     ) {
         this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
         this.apiDefinitionObject = apiDefinitionObject;

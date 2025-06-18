@@ -1,5 +1,4 @@
-import { z } from 'zod';
-import { CreateApiDefinition, CreateResponses } from '../../src';
+import { ZodSchema as z, CreateApiDefinition, CreateResponses } from '../../src';
 
 export const PublicApiDefinition = CreateApiDefinition({
     prefix: '/api/v1/public',

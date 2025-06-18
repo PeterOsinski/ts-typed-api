@@ -51,11 +51,10 @@ Create your API definitions organized by logical domains:
 
 ```typescript
 // definitions.ts
-import { z } from 'zod';
-import { createApiDefinition, createResponses } from 'ts-typed-api';
+import { ZodSchema as z, CreateApiDefinition, CreateResponses } from 'ts-typed-api';
 
 // you can create multiple definitions per app
-export const PublicApiDefinition = createApiDefinition({
+export const PublicApiDefinition = CreateApiDefinition({
     prefix: '/api/v1/public',
     endpoints: {
         common: { // domain name
@@ -69,7 +68,7 @@ export const PublicApiDefinition = createApiDefinition({
                 // validate body with Zod
                 body: z.object({}),
                 // validate query parameters with Zod
-                responses: createResponses({
+                responses: CreateResponses({
                     // specify response codes and response shapes
                     200: z.enum(["pong"]),
                     201: z.boolean()
@@ -87,8 +86,8 @@ Register handlers with full type safety and middleware support:
 ```typescript
 // server.ts
 import express from 'express';
+import { RegisterHandlers, EndpointMiddleware } from 'ts-typed-api';
 import { PublicApiDefinition } from './definitions';
-import { registerHandlers, EndpointMiddleware } from 'ts-typed-api';
 
 const app = express();
 app.use(express.json());
@@ -100,7 +99,7 @@ const loggingMiddleware: EndpointMiddleware = (req, res, next, endpointInfo) => 
 };
 
 // Register handlers with TypeScript enforcing all required handlers are present
-registerHandlers(app, PublicApiDefinition, {
+RegisterHandlers(app, PublicApiDefinition, {
     common: {
         ping: async (req, res) => {
             console.log('Ping endpoint called');
@@ -124,20 +123,18 @@ import { ApiClient, FetchHttpClientAdapter } from 'ts-typed-api';
 import { PublicApiDefinition } from './definitions';
 
 async function runClientExample(): Promise<void> {
-    const apiClient = new ApiClient(
-        'http://localhost:3001',
-        PublicApiDefinition,
-        new FetchHttpClientAdapter()
-    );
+    const apiClient = new ApiClient('http://localhost:3001', PublicApiDefinition);
 
     // Type-safe API calls with response handlers
     await apiClient.callApi('common', 'ping', {}, {
+        // you have to handle each possible status code defined in your contract
         200: (payload) => {
             console.log('Success:', payload); // payload is typed as "pong"
         },
         201: (payload) => {
             console.log('Success:', payload); // payload is typed as boolean
         },
+        // you always need to handle 422 since it's returned on request validation
         422: (payload) => {
             console.log('Request validation error:', payload);
         }
