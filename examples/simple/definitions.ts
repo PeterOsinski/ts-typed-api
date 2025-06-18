@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createApiDefinition, createResponses } from '../../src/router/definition';
+import { createApiDefinition, createResponses } from '../../src';
 
 export const PublicApiDefinition = createApiDefinition({
     prefix: '/api/v1/public',

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createApiDefinition, createResponses } from '../../src/router/definition';
+import { createApiDefinition, createResponses } from '../../src';
 
 // User Schema for validation
 const UserSchema = z.object({
