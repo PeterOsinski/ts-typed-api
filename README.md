@@ -3,9 +3,15 @@
 A lightweight, type-safe API library for TypeScript with Zod validation.
 
 ## Motivation
-After I built a couple of apps with backend/frontend I realized that LLMs struggle with implementing features that span between both componens (FE/BE), especially on the interface side. 
-LLMs struggle with defining and API endpoint then using it effectively in the frontend, they lack assistance and context that could be brought to them by clean contract.
-I decided to leverage TypeScript system to provide a real-time feedback to LLMs and the developer.
+
+After building several full-stack applications, I discovered that Large Language Models (LLMs) face significant challenges when implementing features that span both backend and frontend components, particularly around API interfaces.
+
+The core issues I observed:
+- **API Contract Drift**: LLMs struggle to maintain consistency when defining an API endpoint and then implementing its usage in the frontend
+- **Context Loss**: Without a clear, shared contract, LLMs lack the contextual assistance needed to ensure proper integration between client and server
+- **Integration Errors**: The disconnect between backend definitions and frontend consumption leads to runtime errors that could be prevented
+
+**The Solution**: Leverage TypeScript's powerful type system to provide real-time feedback and compile-time validation for both LLMs and developers. By creating a shared contract that enforces consistency across the entire stack, we eliminate the guesswork and reduce integration issues.
 
 ## 🤖 Built for LLM-Assisted Development
 
