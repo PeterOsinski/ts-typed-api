@@ -33,18 +33,18 @@ registerHandlers(app, PublicApiDefinition, {
         // TypeScript will give you type errors if this handler is missing
         ping: async (req, res) => {
             // req and res are fully typed based on the API definition
-            console.log('Ping endpoint called');
             res.respond(200, "pong");
         }
     },
     status: {
         // TypeScript will give you type errors if these handlers are missing
         probe1: async (req, res) => {
-            console.log('Probe1 endpoint called');
+            if (req.query.match) {
+                return res.respond(201, { status: true })
+            }
             res.respond(200, "pong");
         },
         probe2: async (req, res) => {
-            console.log('Probe2 endpoint called');
             res.respond(200, "pong");
         }
     }

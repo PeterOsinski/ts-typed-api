@@ -8,8 +8,16 @@ export const PublicApiDefinition = createApiDefinition({
             probe1: {
                 method: 'GET',
                 path: '/status/probe1',
+                query: z.object({
+                    match: z.boolean()
+                }),
+                body: z.object({}),
+                params: z.object({}),
                 responses: createResponses({
                     200: z.enum(["pong"]),
+                    201: z.object({
+                        status: z.boolean()
+                    })
                 })
             },
             probe2: {
