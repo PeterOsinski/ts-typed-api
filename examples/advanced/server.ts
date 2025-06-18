@@ -1,6 +1,6 @@
 import express from 'express';
 import { PrivateApiDefinition, PublicApiDefinition } from './definitions';
-import { registerHandlers, EndpointMiddleware } from '../../src';
+import { RegisterHandlers, EndpointMiddleware } from '../../src';
 
 // Simple UUID generator for demo purposes
 function generateUUID(): string {
@@ -88,7 +88,7 @@ const authMiddleware: EndpointMiddleware = async (req, res, next, endpointInfo) 
 };
 
 // Register public API handlers
-registerHandlers(app, PublicApiDefinition, {
+RegisterHandlers(app, PublicApiDefinition, {
     auth: {
         login: async (req, res) => {
             const { username, password } = req.body;
@@ -167,7 +167,7 @@ registerHandlers(app, PublicApiDefinition, {
 }, [loggingMiddleware]);
 
 // Register private API handlers with auth middleware
-registerHandlers(app, PrivateApiDefinition, {
+RegisterHandlers(app, PrivateApiDefinition, {
     user: {
         get: async (req, res) => {
             const userId = req.params.id;

@@ -22,7 +22,7 @@
     "api",
     "validation"
   ],
-  "author": "Your Name",
+  "author": "Piotr Osinski",
   "license": "ISC",
   "dependencies": {
     "@types/express": "^5.0.3",
@@ -48,10 +48,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/ts-typed-api.git"
+    "url": "https://github.com/PeterOsinski/ts-typed-api.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/ts-typed-api/issues"
+    "url": "https://github.com/PeterOsinski/ts-typed-api/issues"
   },
-  "homepage": "https://github.com/yourusername/ts-typed-api#readme"
+  "homepage": "https://github.com/PeterOsinski/ts-typed-api#readme"
 }

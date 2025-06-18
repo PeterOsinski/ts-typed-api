@@ -1,6 +1,6 @@
 import express from 'express';
 import { PrivateApiDefinition, PublicApiDefinition } from './definitions';
-import { registerHandlers, EndpointMiddleware } from '../../src';
+import { RegisterHandlers, EndpointMiddleware } from '../../src';
 const app = express();
 const port = 3001;
 app.set('etag', false);
@@ -26,7 +26,7 @@ const authMiddleware: EndpointMiddleware = async (req, res, next, endpointInfo) 
 };
 
 // Register all handlers at once with middlewares
-registerHandlers(app, PublicApiDefinition, {
+RegisterHandlers(app, PublicApiDefinition, {
     // Define handlers using the object-based approach
     // TypeScript will enforce that all required handlers are present
     common: {
@@ -51,7 +51,7 @@ registerHandlers(app, PublicApiDefinition, {
 }, [loggingMiddleware]); // Pass middlewares as 4th argument
 
 // Add another api definition
-registerHandlers(app, PrivateApiDefinition, {
+RegisterHandlers(app, PrivateApiDefinition, {
     user: {
         get: async (req, res) => {
             console.log('Fetching user', req.params.id);

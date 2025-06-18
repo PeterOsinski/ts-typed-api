@@ -60,7 +60,7 @@ function transformObjectHandlersToArray<TDef extends ApiDefinitionSchema>(
 }
 
 // Main utility function that registers object-based handlers
-export function registerHandlers<TDef extends ApiDefinitionSchema>(
+export function RegisterHandlers<TDef extends ApiDefinitionSchema>(
     app: express.Express,
     apiDefinition: TDef,
     objectHandlers: ObjectHandlers<TDef>,
@@ -79,6 +79,6 @@ export function makeObjectHandlerRegistrar<TDef extends ApiDefinitionSchema>(
         objectHandlers: ObjectHandlers<TDef>,
         middlewares?: EndpointMiddleware[]
     ): void {
-        registerHandlers(app, apiDefinition, objectHandlers, middlewares);
+        RegisterHandlers(app, apiDefinition, objectHandlers, middlewares);
     };
 }

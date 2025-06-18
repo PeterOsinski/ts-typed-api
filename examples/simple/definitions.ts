@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { createApiDefinition, createResponses } from '../../src';
+import { CreateApiDefinition, CreateResponses } from '../../src';
 
-export const PublicApiDefinition = createApiDefinition({
+export const PublicApiDefinition = CreateApiDefinition({
     prefix: '/api/v1/public',
     endpoints: {
         status: {
@@ -13,7 +13,7 @@ export const PublicApiDefinition = createApiDefinition({
                 }),
                 body: z.object({}),
                 params: z.object({}),
-                responses: createResponses({
+                responses: CreateResponses({
                     200: z.enum(["pong"]),
                     201: z.object({
                         status: z.boolean()
@@ -23,7 +23,7 @@ export const PublicApiDefinition = createApiDefinition({
             probe2: {
                 method: 'GET',
                 path: '/status/probe2',
-                responses: createResponses({
+                responses: CreateResponses({
                     200: z.enum(["pong"]),
                 })
             },
@@ -32,14 +32,14 @@ export const PublicApiDefinition = createApiDefinition({
             ping: {
                 method: 'GET',
                 path: '/ping',
-                responses: createResponses({
+                responses: CreateResponses({
                     200: z.enum(["pong"]),
                 })
             },
         }
     }
 })
-export const PrivateApiDefinition = createApiDefinition({
+export const PrivateApiDefinition = CreateApiDefinition({
     prefix: '/api/v1/private',
     endpoints: {
         user: {
@@ -49,7 +49,7 @@ export const PrivateApiDefinition = createApiDefinition({
                 params: z.object({
                     id: z.string()
                 }),
-                responses: createResponses({
+                responses: CreateResponses({
                     200: z.enum(["ok"]),
                 })
             },

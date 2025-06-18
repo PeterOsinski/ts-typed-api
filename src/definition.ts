@@ -76,7 +76,7 @@ type CreateResponsesReturnType<InputSchemas extends Partial<Record<AllowedInputS
 
 // Helper function to create response schemas with unified structure and default 422 error
 // Schemas input is now constrained to use AllowedInputStatusCode as keys.
-export function createResponses<TInputMap extends Partial<Record<AllowedInputStatusCode, InputSchemaOrMarker>>>(
+export function CreateResponses<TInputMap extends Partial<Record<AllowedInputStatusCode, InputSchemaOrMarker>>>(
     schemas: TInputMap
 ): CreateResponsesReturnType<TInputMap> {
     const builtResult: any = {}; // Using any for intermediate dynamic construction.
@@ -128,7 +128,7 @@ export type ApiDefinitionSchema = {
 
 // Helper function to ensure the definition conforms to ApiDefinitionSchema
 // while preserving the literal types of the passed object.
-export function createApiDefinition<T extends ApiDefinitionSchema>(definition: T): T {
+export function CreateApiDefinition<T extends ApiDefinitionSchema>(definition: T): T {
     return definition;
 }
 
