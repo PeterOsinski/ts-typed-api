@@ -2,29 +2,40 @@
 
 A lightweight, type-safe API library for TypeScript with Zod validation.
 
+## Motivation
+After I built a couple of apps with backend/frontend I realized that LLMs struggle with implementing features that span between both componens (FE/BE), especially on the interface side. 
+LLMs struggle with defining and API endpoint then using it effectively in the frontend, they lack assistance and context that could be brought to them by clean contract.
+I decided to leverage TypeScript system to provide a real-time feedback to LLMs and the developer.
+
 ## 🤖 Built for LLM-Assisted Development
 
 This module is specifically designed to make coding with Large Language Models (LLMs) easier and more efficient. When working on bigger applications with extensive APIs, maintaining context becomes challenging for both developers and AI assistants. ts-typed-api solves this by:
 
+### 🔑 Key Benefits for LLM Development
 - **Centralized Type Definitions**: Keep all API contracts in one place, making it easier for LLMs to understand your entire API surface
-- **Automatic Type Synchronization**: The type system ensures both client and server stay perfectly in sync, preventing the drift that commonly occurs in large codebases
+- **Automatic Type Synchronization**: The type system ensures both client and server stay perfectly in sync, preventing the drift that commonly occurs in large codebases. Compile-time checks prevent the common client-server mismatches that occur in AI-assisted development
 - **Context-Friendly Structure**: Organized domain-based API definitions that LLMs can easily parse and understand
 - **Compile-Time Validation**: Catch integration issues before runtime, reducing the debugging cycles when working with AI-generated code
-
-## 🌟 Features
-
-- **Type-Safe API Definitions**: Create fully type-safe API routes with compile-time type checking
-- **Domain-Based Organization**: Structure APIs by logical domains for better maintainability
-- **Zod Validation**: Built-in runtime validation using Zod schemas
-- **Flexible HTTP Client**: Supports custom HTTP adapters (fetch, axios, etc.)
-- **Middleware Support**: Add authentication, logging, and other cross-cutting concerns
-- **Minimal Overhead**: Lightweight implementation with powerful type inference
+- **Self-Documenting**: Type definitions serve as living documentation that LLMs can easily parse
 
 ## 📦 Installation
 
 ```bash
-npm install ts-typed-api zod
+npm install ts-typed-api
 ```
+
+
+## How to use it?
+1. Define your API in a file that will be shared by both the server and the client
+2. Implement handlers in the server, leveraging the type system and request/response validation
+3. Implement the client based on the contract from #1 leveraging type system
+
+
+## Examples
+
+Check out the `examples/` directory:
+- `simple/` - Basic usage with ping endpoints and middleware
+- `advanced/` - Complex schemas with authentication, CRUD operations, and file uploads
 
 ## 🚀 Quick Start
 
@@ -37,15 +48,25 @@ Create your API definitions organized by logical domains:
 import { z } from 'zod';
 import { createApiDefinition, createResponses } from 'ts-typed-api';
 
+// you can create multiple definitions per app
 export const PublicApiDefinition = createApiDefinition({
     prefix: '/api/v1/public',
     endpoints: {
-        common: { // domain
-            ping: { // endpoint
+        common: { // domain name
+            ping: { // endpoint name
                 method: 'GET',
                 path: '/ping',
+                // validate route parameters with Zod
+                params: z.object({}),
+                // validate query parameters with Zod
+                query: z.object({}), 
+                // validate body with Zod
+                body: z.object({}),
+                // validate query parameters with Zod
                 responses: createResponses({
+                    // specify response codes and response shapes
                     200: z.enum(["pong"]),
+                    201: z.boolean()
                 })
             },
         }
@@ -60,7 +81,7 @@ Register handlers with full type safety and middleware support:
 ```typescript
 // server.ts
 import express from 'express';
-import { PrivateApiDefinition, PublicApiDefinition } from './definitions';
+import { PublicApiDefinition } from './definitions';
 import { registerHandlers, EndpointMiddleware } from 'ts-typed-api';
 
 const app = express();
@@ -108,22 +129,19 @@ async function runClientExample(): Promise<void> {
         200: (payload) => {
             console.log('Success:', payload); // payload is typed as "pong"
         },
+        201: (payload) => {
+            console.log('Success:', payload); // payload is typed as boolean
+        },
         422: (payload) => {
-            console.log('Validation error:', payload);
+            console.log('Request validation error:', payload);
         }
     });
 }
 ```
 
-## 🔑 Key Benefits for LLM Development
+**Now both server and client are type safe and in sync! The moment you change the definition of the API, type system will let you know about potential changes you need to handle (like additional response code or a change request body schema).**
 
-- **Context Preservation**: Centralized API definitions make it easier for LLMs to understand your entire API surface
-- **Type Safety**: Compile-time checks prevent the common client-server mismatches that occur in AI-assisted development
-- **Reduced Debugging**: Catch integration issues before runtime, minimizing the back-and-forth debugging cycles
-- **Scalable Architecture**: Domain-based organization keeps large APIs manageable for both humans and AI assistants
-- **Self-Documenting**: Type definitions serve as living documentation that LLMs can easily parse
-
-## 🛠️ Advanced Features
+## 🌟 Features
 
 ### Custom HTTP Client Adapters
 
@@ -147,14 +165,9 @@ const customMiddleware: EndpointMiddleware = (req, res, next, endpointInfo) => {
 };
 ```
 
-### Supported Features
+## Roadmap
 
-- Domain-based API organization
-- Type-safe route definitions with parameters
-- Zod schema validation
-- Flexible error handling with typed responses
-- Middleware support with endpoint context
-- Custom HTTP adapters
+- OpenAPI generation with dynamic documentation based on Swagger
 
 ## 🤝 Contributing
 
@@ -162,4 +175,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📄 License
 
-ISC License
+Apache 2.0 License
