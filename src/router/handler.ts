@@ -72,6 +72,21 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                     params: parsedParams,
                     query: parsedQuery,
                     body: parsedBody,
+                    headers: expressReq.headers,
+                    cookies: expressReq.cookies,
+                    ip: expressReq.ip,
+                    ips: expressReq.ips,
+                    hostname: expressReq.hostname,
+                    protocol: expressReq.protocol,
+                    secure: expressReq.secure,
+                    xhr: expressReq.xhr,
+                    fresh: expressReq.fresh,
+                    stale: expressReq.stale,
+                    subdomains: expressReq.subdomains,
+                    path: expressReq.path,
+                    originalUrl: expressReq.originalUrl,
+                    baseUrl: expressReq.baseUrl,
+                    url: expressReq.url,
                 } as TypedRequest<TDef, typeof currentDomain, typeof currentRouteKey>;
 
                 // Augment expressRes with the .respond method, using TDef

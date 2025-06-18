@@ -1,7 +1,6 @@
 import express from 'express';
 import { PrivateApiDefinition, PublicApiDefinition } from './definitions';
 import { registerHandlers, EndpointMiddleware } from '../../src/router';
-import { runClientExample } from './client';
 
 // Simple UUID generator for demo purposes
 function generateUUID(): string {
@@ -295,5 +294,5 @@ app.listen(port, async () => {
     console.log('  DELETE /api/v1/private/user/:id');
     console.log('  POST /api/v1/private/upload');
     console.log('\nTest credentials: username="admin", password="password"');
-    await runClientExample()
+    // await runClientExample()
 });

@@ -1,6 +1,5 @@
 import {
     type ApiDefinitionSchema as BaseApiDefinitionSchema, // Renamed for clarity
-    type ApiRouteKey,
     type ApiClientParams,
     type ApiClientQuery,
     type ApiClientBody,
