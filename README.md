@@ -27,7 +27,7 @@ This module is specifically designed to make coding with Large Language Models (
 ## 📦 Installation
 
 ```bash
-npm install ts-typed-api
+npm install --save ts-typed-api
 ```
 
 
