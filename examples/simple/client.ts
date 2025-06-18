@@ -1,4 +1,4 @@
-import { ApiClient, FetchHttpClientAdapter } from '../src/router/client';
+import { ApiClient, FetchHttpClientAdapter } from '../../src/router/client';
 import { PublicApiDefinition } from './definitions';
 
 // Type-safe wrapper function with explicit return type

@@ -1,6 +1,6 @@
 import express from 'express';
 import { PrivateApiDefinition, PublicApiDefinition } from './definitions';
-import { registerHandlers, EndpointMiddleware } from '../src/router';
+import { registerHandlers, EndpointMiddleware } from '../../src/router';
 const app = express();
 const port = 3001;
 app.set('etag', false);
