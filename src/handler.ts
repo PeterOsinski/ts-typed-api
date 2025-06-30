@@ -26,6 +26,8 @@ function createFileUploadMiddleware(config: FileUploadConfig): express.RequestHa
     // Default multer configuration
     const storage = multer.memoryStorage(); // Store files in memory by default
 
+    let multerMiddleware: express.RequestHandler;
+
     if (config.single) {
         const upload = multer({
             storage,
@@ -40,10 +42,8 @@ function createFileUploadMiddleware(config: FileUploadConfig): express.RequestHa
                 cb(null, true);
             }
         });
-        return upload.single(config.single.fieldName);
-    }
-
-    if (config.array) {
+        multerMiddleware = upload.single(config.single.fieldName);
+    } else if (config.array) {
         const upload = multer({
             storage,
             limits: {
@@ -58,10 +58,8 @@ function createFileUploadMiddleware(config: FileUploadConfig): express.RequestHa
                 cb(null, true);
             }
         });
-        return upload.array(config.array.fieldName, config.array.maxCount);
-    }
-
-    if (config.fields) {
+        multerMiddleware = upload.array(config.array.fieldName, config.array.maxCount);
+    } else if (config.fields) {
         const upload = multer({
             storage,
             limits: {
@@ -77,10 +75,8 @@ function createFileUploadMiddleware(config: FileUploadConfig): express.RequestHa
             }
         });
         const fields = config.fields.map(f => ({ name: f.fieldName, maxCount: f.maxCount || 1 }));
-        return upload.fields(fields);
-    }
-
-    if (config.any) {
+        multerMiddleware = upload.fields(fields);
+    } else if (config.any) {
         const upload = multer({
             storage,
             limits: {
@@ -94,11 +90,80 @@ function createFileUploadMiddleware(config: FileUploadConfig): express.RequestHa
                 cb(null, true);
             }
         });
-        return upload.any();
+        multerMiddleware = upload.any();
+    } else {
+        // Fallback - should not reach here if config is valid
+        throw new Error('Invalid file upload configuration');
     }
 
-    // Fallback - should not reach here if config is valid
-    throw new Error('Invalid file upload configuration');
+    // Wrap multer middleware with error handling to format errors as 422 JSON responses
+    return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+        multerMiddleware(req, res, (error) => {
+            if (error) {
+                // Convert multer errors to UnifiedError format
+                const mappedErrors: UnifiedError = [];
+
+                if (error instanceof multer.MulterError) {
+                    let errorMessage = error.message;
+                    let fieldName = 'file';
+
+                    switch (error.code) {
+                        case 'LIMIT_FILE_SIZE':
+                            errorMessage = 'File size exceeds the allowed limit';
+                            break;
+                        case 'LIMIT_FILE_COUNT':
+                            errorMessage = 'Too many files uploaded';
+                            break;
+                        case 'LIMIT_UNEXPECTED_FILE':
+                            errorMessage = `Unexpected field: ${error.field}`;
+                            fieldName = error.field || 'file';
+                            break;
+                        case 'LIMIT_FIELD_KEY':
+                            errorMessage = 'Field name too long';
+                            break;
+                        case 'LIMIT_FIELD_VALUE':
+                            errorMessage = 'Field value too long';
+                            break;
+                        case 'LIMIT_FIELD_COUNT':
+                            errorMessage = 'Too many fields';
+                            break;
+                        case 'LIMIT_PART_COUNT':
+                            errorMessage = 'Too many parts';
+                            break;
+                        default:
+                            errorMessage = error.message || 'File upload error';
+                    }
+
+                    mappedErrors.push({
+                        field: fieldName,
+                        message: errorMessage,
+                        type: 'body',
+                    });
+                } else if (error instanceof Error) {
+                    // Handle custom errors from fileFilter
+                    mappedErrors.push({
+                        field: 'file',
+                        message: error.message,
+                        type: 'body',
+                    });
+                } else {
+                    mappedErrors.push({
+                        field: 'file',
+                        message: 'File upload error',
+                        type: 'body',
+                    });
+                }
+
+                // Send 422 response with structured error format
+                res.status(422).json({
+                    data: null,
+                    error: mappedErrors
+                });
+            } else {
+                next();
+            }
+        });
+    };
 }
 
 // Register route handlers with Express, now generic over TDef
