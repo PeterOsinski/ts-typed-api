@@ -95,6 +95,8 @@ export function CreateResponses<TInputMap extends Partial<Record<AllowedInputSta
                     });
                 } else if (schemaOrMarker instanceof ZodType) { // It's a Zod schema
                     (builtResult as any)[numericKey] = createSuccessUnifiedResponseSchema(schemaOrMarker);
+                } else {
+                    (builtResult as any)[numericKey] = createSuccessUnifiedResponseSchema(schemaOrMarker);
                 }
                 // Note: If schemaOrMarker is something else, it would be a type error
                 // based on InputSchemaOrMarker, or this runtime check would skip it.
