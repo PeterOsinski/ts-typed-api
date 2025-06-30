@@ -111,6 +111,35 @@ export function CreateResponses<TInputMap extends Partial<Record<AllowedInputSta
     return builtResult as CreateResponsesReturnType<TInputMap>;
 }
 
+// File upload configuration interface
+export interface FileUploadConfig {
+    // Single file upload
+    single?: {
+        fieldName: string;
+        maxSize?: number; // in bytes
+        allowedMimeTypes?: string[];
+    };
+    // Multiple files upload (same field name)
+    array?: {
+        fieldName: string;
+        maxCount?: number;
+        maxSize?: number; // in bytes per file
+        allowedMimeTypes?: string[];
+    };
+    // Multiple files upload (different field names)
+    fields?: Array<{
+        fieldName: string;
+        maxCount?: number;
+        maxSize?: number; // in bytes per file
+        allowedMimeTypes?: string[];
+    }>;
+    // Any files upload
+    any?: {
+        maxSize?: number; // in bytes per file
+        allowedMimeTypes?: string[];
+    };
+}
+
 // Define the structure for a single API route
 export interface RouteSchema {
     path: string;
@@ -118,6 +147,7 @@ export interface RouteSchema {
     params?: ZodTypeAny;
     query?: ZodTypeAny;
     body?: ZodTypeAny;
+    fileUpload?: FileUploadConfig; // Optional file upload configuration
     responses: Record<number, ZodTypeAny>; // Maps HTTP status codes to Zod schemas
 }
 
@@ -231,3 +261,68 @@ export type ApiClientQuery<
 > = TDef['endpoints'][TDomain][TRouteName] extends { query: infer Q extends ZodTypeAny }
     ? z.input<Q> // Use z.input for the type expected by the client to send
     : undefined;
+
+// --- File Upload Validation Schemas ---
+
+// Schema for validating uploaded files
+export const fileSchema = z.object({
+    fieldname: z.string(),
+    originalname: z.string(),
+    encoding: z.string(),
+    mimetype: z.string(),
+    size: z.number(),
+    buffer: z.instanceof(Buffer),
+    destination: z.string().optional(),
+    filename: z.string().optional(),
+    path: z.string().optional(),
+    stream: z.any().optional(),
+});
+
+export type FileType = z.infer<typeof fileSchema>;
+
+// Helper function to create file validation schema with constraints
+export function createFileValidationSchema(options?: {
+    maxSize?: number;
+    allowedMimeTypes?: string[];
+    required?: boolean;
+}) {
+    let schema: z.ZodTypeAny = fileSchema;
+
+    if (options?.maxSize) {
+        schema = schema.refine(
+            (file: any) => file.size <= options.maxSize!,
+            { message: `File size must be less than ${options.maxSize} bytes` }
+        );
+    }
+
+    if (options?.allowedMimeTypes && options.allowedMimeTypes.length > 0) {
+        schema = schema.refine(
+            (file: any) => options.allowedMimeTypes!.includes(file.mimetype),
+            { message: `File type must be one of: ${options.allowedMimeTypes.join(', ')}` }
+        );
+    }
+
+    return options?.required === false ? schema.optional() : schema;
+}
+
+// Helper function to create array of files validation schema
+export function createFilesArrayValidationSchema(options?: {
+    maxCount?: number;
+    maxSize?: number;
+    allowedMimeTypes?: string[];
+    required?: boolean;
+}) {
+    const singleFileSchema = createFileValidationSchema({
+        maxSize: options?.maxSize,
+        allowedMimeTypes: options?.allowedMimeTypes,
+        required: true, // Individual files in array are required
+    });
+
+    let schema = z.array(singleFileSchema);
+
+    if (options?.maxCount) {
+        schema = schema.max(options.maxCount, `Maximum ${options.maxCount} files allowed`);
+    }
+
+    return options?.required === false ? schema.optional() : schema;
+}

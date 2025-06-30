@@ -144,6 +144,63 @@ async function runClientExample(): Promise<void> {
 
 **Now both server and client are type safe and in sync! The moment you change the definition of the API, type system will let you know about potential changes you need to handle (like additional response code or a change request body schema).**
 
+### 4. File Upload Example
+
+Handle file uploads with type-safe validation:
+
+```typescript
+// Define file upload endpoints
+const FileUploadApiDefinition = CreateApiDefinition({
+    prefix: '/api',
+    endpoints: {
+        files: {
+            uploadSingle: {
+                path: '/upload/single',
+                method: 'POST',
+                body: z.object({
+                    description: z.string().optional(),
+                }),
+                fileUpload: {
+                    single: {
+                        fieldName: 'file',
+                        maxSize: 5 * 1024 * 1024, // 5MB
+                        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif']
+                    }
+                },
+                responses: CreateResponses({
+                    200: z.object({
+                        message: z.string(),
+                        fileInfo: z.object({
+                            originalName: z.string(),
+                            size: z.number(),
+                            mimetype: z.string()
+                        })
+                    })
+                })
+            }
+        }
+    }
+});
+
+// Implement handler
+RegisterHandlers(app, FileUploadApiDefinition, {
+    files: {
+        uploadSingle: async (req, res) => {
+            const file = req.file as UploadedFile | undefined;
+            
+            res.respond(200, {
+                message: 'File uploaded successfully',
+                fileInfo: {
+                    originalName: file!.originalname,
+                    size: file!.size,
+                    mimetype: file!.mimetype
+                }
+            });
+        }
+    }
+});
+```
+
 ## 🌟 Features
 
 ### Custom HTTP Client Adapters

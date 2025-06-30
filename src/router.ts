@@ -7,6 +7,9 @@ import {
     InferDataFromUnifiedResponse,
 } from './definition';
 
+// Define the file type based on Express.Multer namespace
+export type File = Express.Multer.File;
+
 // Typed Request for Express handlers, now generic over TDef
 export type TypedRequest<
     TDef extends ApiDefinitionSchema,
@@ -17,7 +20,11 @@ export type TypedRequest<
     ReqBody extends ApiBody<TDef, TDomain, TRouteKey> = ApiBody<TDef, TDomain, TRouteKey>,
     Q extends ApiQuery<TDef, TDomain, TRouteKey> = ApiQuery<TDef, TDomain, TRouteKey>,
     L extends Record<string, any> = Record<string, any>
-> = express.Request<P, any, ReqBody, Q, L>
+> = express.Request<P, any, ReqBody, Q, L> & {
+    // Add file upload support
+    file?: File;
+    files?: File[] | { [fieldname: string]: File[] };
+}
 
 // --- Enhanced TypedResponse with res.respond, now generic over TDef ---
 

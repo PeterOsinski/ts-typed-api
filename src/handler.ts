@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { ApiDefinitionSchema, RouteSchema, UnifiedError } from "./definition";
+import { ApiDefinitionSchema, RouteSchema, UnifiedError, FileUploadConfig } from "./definition";
 import { createRouteHandler, TypedRequest, TypedResponse } from "./router";
 import express from "express";
+import multer from "multer";
 
 // A handler entry, now generic over TDef
 export type SpecificRouteHandler<TDef extends ApiDefinitionSchema> = {
@@ -19,6 +20,86 @@ type EndpointMiddleware = (
     next: express.NextFunction,
     endpointInfo: { domain: string; routeKey: string }
 ) => void | Promise<void>;
+
+// Helper function to create multer middleware based on file upload configuration
+function createFileUploadMiddleware(config: FileUploadConfig): express.RequestHandler {
+    // Default multer configuration
+    const storage = multer.memoryStorage(); // Store files in memory by default
+
+    if (config.single) {
+        const upload = multer({
+            storage,
+            limits: {
+                fileSize: config.single.maxSize || 10 * 1024 * 1024, // Default 10MB
+            },
+            fileFilter: (req, file, cb) => {
+                if (config.single!.allowedMimeTypes && !config.single!.allowedMimeTypes.includes(file.mimetype)) {
+                    cb(new Error(`File type ${file.mimetype} not allowed`));
+                    return;
+                }
+                cb(null, true);
+            }
+        });
+        return upload.single(config.single.fieldName);
+    }
+
+    if (config.array) {
+        const upload = multer({
+            storage,
+            limits: {
+                fileSize: config.array.maxSize || 10 * 1024 * 1024, // Default 10MB per file
+                files: config.array.maxCount || 10, // Default max 10 files
+            },
+            fileFilter: (req, file, cb) => {
+                if (config.array!.allowedMimeTypes && !config.array!.allowedMimeTypes.includes(file.mimetype)) {
+                    cb(new Error(`File type ${file.mimetype} not allowed`));
+                    return;
+                }
+                cb(null, true);
+            }
+        });
+        return upload.array(config.array.fieldName, config.array.maxCount);
+    }
+
+    if (config.fields) {
+        const upload = multer({
+            storage,
+            limits: {
+                fileSize: Math.max(...config.fields.map(f => f.maxSize || 10 * 1024 * 1024)), // Use max size from all fields
+            },
+            fileFilter: (req, file, cb) => {
+                const fieldConfig = config.fields!.find(f => f.fieldName === file.fieldname);
+                if (fieldConfig?.allowedMimeTypes && !fieldConfig.allowedMimeTypes.includes(file.mimetype)) {
+                    cb(new Error(`File type ${file.mimetype} not allowed for field ${file.fieldname}`));
+                    return;
+                }
+                cb(null, true);
+            }
+        });
+        const fields = config.fields.map(f => ({ name: f.fieldName, maxCount: f.maxCount || 1 }));
+        return upload.fields(fields);
+    }
+
+    if (config.any) {
+        const upload = multer({
+            storage,
+            limits: {
+                fileSize: config.any.maxSize || 10 * 1024 * 1024, // Default 10MB per file
+            },
+            fileFilter: (req, file, cb) => {
+                if (config.any!.allowedMimeTypes && !config.any!.allowedMimeTypes.includes(file.mimetype)) {
+                    cb(new Error(`File type ${file.mimetype} not allowed`));
+                    return;
+                }
+                cb(null, true);
+            }
+        });
+        return upload.any();
+    }
+
+    // Fallback - should not reach here if config is valid
+    throw new Error('Invalid file upload configuration');
+}
 
 // Register route handlers with Express, now generic over TDef
 export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
@@ -192,6 +273,18 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
 
         // Create middleware wrappers that include endpoint information
         const middlewareWrappers: express.RequestHandler[] = [];
+
+        // Add file upload middleware if configured
+        if (routeDefinition.fileUpload) {
+            try {
+                const fileUploadMiddleware = createFileUploadMiddleware(routeDefinition.fileUpload);
+                middlewareWrappers.push(fileUploadMiddleware);
+            } catch (error) {
+                console.error(`Error creating file upload middleware for ${currentDomain}.${currentRouteKey}:`, error);
+                return; // Skip this route if file upload middleware creation fails
+            }
+        }
+
         if (middlewares && middlewares.length > 0) {
             middlewares.forEach(middleware => {
                 const wrappedMiddleware: express.RequestHandler = async (req, res, next) => {
