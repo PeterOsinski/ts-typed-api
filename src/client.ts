@@ -1,33 +1,3 @@
-// Browser compatibility: Mock Buffer if not available (Node.js specific)
-if (typeof globalThis !== 'undefined' && typeof globalThis.Buffer === 'undefined') {
-    // Create a minimal Buffer mock for browser environments
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any).Buffer = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        isBuffer: (_obj: any) => false,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        from: (data: any, _encoding?: string) => {
-            if (typeof data === 'string') {
-                return new TextEncoder().encode(data);
-            }
-            return new Uint8Array(data);
-        },
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        alloc: (size: number, _fill?: any) => new Uint8Array(size),
-        allocUnsafe: (size: number) => new Uint8Array(size),
-        concat: (list: Uint8Array[], totalLength?: number) => {
-            const total = totalLength || list.reduce((acc, arr) => acc + arr.length, 0);
-            const result = new Uint8Array(total);
-            let offset = 0;
-            for (const arr of list) {
-                result.set(arr, offset);
-                offset += arr.length;
-            }
-            return result;
-        }
-    };
-}
-
 import {
     type ApiDefinitionSchema as BaseApiDefinitionSchema, // Renamed for clarity
     type ApiClientParams,
