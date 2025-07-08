@@ -265,13 +265,20 @@ export type ApiClientQuery<
 // --- File Upload Validation Schemas ---
 
 // Schema for validating uploaded files
+// Compatible with both Node.js (Buffer) and browser (File/Blob) environments
 export const fileSchema = z.object({
     fieldname: z.string(),
     originalname: z.string(),
     encoding: z.string(),
     mimetype: z.string(),
     size: z.number(),
-    buffer: z.instanceof(Buffer),
+    buffer: z.union([
+        // Node.js environment
+        typeof Buffer !== 'undefined' ? z.instanceof(Buffer) : z.never(),
+        // Browser environment
+        typeof File !== 'undefined' ? z.instanceof(File) : z.never(),
+        typeof Blob !== 'undefined' ? z.instanceof(Blob) : z.never(),
+    ]).optional(), // Make optional since not all environments will have all types
     destination: z.string().optional(),
     filename: z.string().optional(),
     path: z.string().optional(),
