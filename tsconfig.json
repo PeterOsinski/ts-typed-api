@@ -5,6 +5,7 @@
     "lib": ["es2020"],
     "declaration": true,
     "outDir": "./dist",
+    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -12,6 +13,6 @@
     "moduleResolution": "node",
     "types": ["jest", "node"]
   },
-  "include": ["src/**/*", "example-server/**/*", "**/*.test.ts"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "**/*.spec.ts"]
 }
