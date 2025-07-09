@@ -103,7 +103,7 @@ type GetResponses<Rte extends RouteSchema> = Rte['responses'];
 // Helper type to define the payload structure for a single status
 type ApiCallResultPayload<S_STATUS_NUM extends number, ActualSchema extends ZodTypeAny> =
     S_STATUS_NUM extends 422 ? { status: S_STATUS_NUM; error: UnifiedError; rawResponse: any; data?: undefined } :
-    S_STATUS_NUM extends 204 ? { status: S_STATUS_NUM; data: void; rawResponse: any; error?: undefined } :
+    S_STATUS_NUM extends 204 ? { status: S_STATUS_NUM; data: null; rawResponse: any; error?: undefined } :
     // For all other statuses, their schemas from createResponses are wrapped in { data: ... } by the backend.
     // InferDataFromUnifiedResponse will correctly extract the inner data.
     { status: S_STATUS_NUM; data: InferDataFromUnifiedResponse<ActualSchema>; rawResponse: any; error?: undefined; };
@@ -315,7 +315,7 @@ export class ApiClient<TActualDef extends BaseApiDefinitionSchema> { // Made gen
         if (currentStatusLiteral === 204) {
             apiResultPayload = {
                 status: 204 as const,
-                data: undefined, // data is undefined for 204
+                data: null, // data is null for 204
                 rawResponse: adapterResponse.getRawResponse(),
             } as Extract<ApiCallResult<TActualDef, TDomain, TRouteKey>, { status: 204 }>;
         } else {

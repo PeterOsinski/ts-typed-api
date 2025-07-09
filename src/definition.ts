@@ -74,6 +74,16 @@ type CreateResponsesReturnType<InputSchemas extends Partial<Record<AllowedInputS
     422: typeof errorUnifiedResponseSchema;
 };
 
+// Helper function to make Zod schemas strict (fail on unknown properties)
+function makeSchemaStrict(schema: ZodTypeAny): ZodTypeAny {
+    // Check if the schema has a .strict() method (ZodObject does)
+    if ('strict' in schema && typeof schema.strict === 'function') {
+        return schema.strict();
+    }
+    // For other schema types, return as-is
+    return schema;
+}
+
 // Helper function to create response schemas with unified structure and default 422 error
 // Schemas input is now constrained to use AllowedInputStatusCode as keys.
 export function CreateResponses<TInputMap extends Partial<Record<AllowedInputStatusCode, InputSchemaOrMarker>>>(
@@ -92,18 +102,20 @@ export function CreateResponses<TInputMap extends Partial<Record<AllowedInputSta
                     // The actual type T is carried by CreateResponsesReturnType for compile-time inference.
                     (builtResult as any)[numericKey] = z.object({
                         data: z.any(), // Runtime placeholder
-                    });
+                    }).strict(); // Make the wrapper object strict
                 } else if (schemaOrMarker instanceof ZodType) { // It's a Zod schema
-                    (builtResult as any)[numericKey] = createSuccessUnifiedResponseSchema(schemaOrMarker);
+                    const strictSchema = makeSchemaStrict(schemaOrMarker);
+                    (builtResult as any)[numericKey] = createSuccessUnifiedResponseSchema(strictSchema);
                 } else {
-                    (builtResult as any)[numericKey] = createSuccessUnifiedResponseSchema(schemaOrMarker);
+                    const strictSchema = makeSchemaStrict(schemaOrMarker);
+                    (builtResult as any)[numericKey] = createSuccessUnifiedResponseSchema(strictSchema);
                 }
                 // Note: If schemaOrMarker is something else, it would be a type error
                 // based on InputSchemaOrMarker, or this runtime check would skip it.
             }
         }
     }
-    // Always set/overwrite the 422 response to use errorUnifiedResponseSchema
+    // Always set/overwrite the 422 response to use errorUnifiedResponseSchema (already strict)
     (builtResult as any)[422] = errorUnifiedResponseSchema;
 
     // Cast to the more specific return type at the end.
@@ -160,8 +172,37 @@ export type ApiDefinitionSchema = {
 
 // Helper function to ensure the definition conforms to ApiDefinitionSchema
 // while preserving the literal types of the passed object.
+// Also applies strict validation to all Zod schemas in the definition.
 export function CreateApiDefinition<T extends ApiDefinitionSchema>(definition: T): T {
-    return definition;
+    // Create a new definition object with strict schemas
+    const strictDefinition = { ...definition };
+    strictDefinition.endpoints = { ...definition.endpoints };
+
+    // Apply strict validation to all route schemas
+    for (const domainKey in definition.endpoints) {
+        const domain = definition.endpoints[domainKey];
+        strictDefinition.endpoints[domainKey] = { ...domain };
+
+        for (const routeKey in domain) {
+            const route = domain[routeKey];
+            const strictRoute = { ...route };
+
+            // Apply strict validation to params, query, and body schemas
+            if (route.params) {
+                strictRoute.params = makeSchemaStrict(route.params);
+            }
+            if (route.query) {
+                strictRoute.query = makeSchemaStrict(route.query);
+            }
+            if (route.body) {
+                strictRoute.body = makeSchemaStrict(route.body);
+            }
+
+            strictDefinition.endpoints[domainKey][routeKey] = strictRoute;
+        }
+    }
+
+    return strictDefinition as T;
 }
 
 // Generate TypeScript types from the API definition
