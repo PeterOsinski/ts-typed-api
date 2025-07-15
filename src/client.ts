@@ -321,8 +321,42 @@ export class ApiClient<TActualDef extends BaseApiDefinitionSchema> { // Made gen
         } else {
             let responseBodyJson: any;
             const contentType = adapterResponse.headers.get("content-type");
+            const contentDisposition = adapterResponse.headers.get("content-disposition");
 
-            if (contentType && contentType.includes("application/json")) {
+            // Check if content-disposition header is present and trigger download
+            if (contentDisposition) {
+                const responseText = await adapterResponse.text();
+
+                // Extract filename from content-disposition header if available
+                let filename = 'download';
+                const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1].replace(/['"]/g, '');
+                }
+
+                // Create blob and trigger download (browser environment)
+                if (typeof globalThis !== 'undefined' &&
+                    'window' in globalThis &&
+                    'document' in globalThis &&
+                    'Blob' in globalThis) {
+                    const win = (globalThis as any).window;
+                    const doc = (globalThis as any).document;
+                    const BlobConstructor = (globalThis as any).Blob;
+
+                    const blob = new BlobConstructor([responseText], { type: contentType || 'application/octet-stream' });
+                    const url = win.URL.createObjectURL(blob);
+                    const link = doc.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    doc.body.appendChild(link);
+                    link.click();
+                    doc.body.removeChild(link);
+                    win.URL.revokeObjectURL(url);
+                }
+
+                // For non-JSON content, set the raw content as data
+                responseBodyJson = { data: responseText };
+            } else if (contentType && contentType.includes("application/json")) {
                 try {
                     responseBodyJson = await adapterResponse.json();
                 } catch (e) {
@@ -340,6 +374,10 @@ export class ApiClient<TActualDef extends BaseApiDefinitionSchema> { // Made gen
                     console.warn(`API ${String(domain)}.${String(routeKey)}: Received non-JSON response for status ${currentStatusLiteral}. Response: ${responseText}`);
                     // responseBodyJson remains undefined or as is, data extraction below will handle it.
                 }
+            } else {
+                // Handle non-JSON content types for successful responses
+                const responseText = await adapterResponse.text();
+                responseBodyJson = { data: responseText };
             }
 
             if (currentStatusLiteral === 422) {
