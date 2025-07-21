@@ -12,18 +12,24 @@ const loggingMiddleware: EndpointMiddleware = (req, res, next, endpointInfo) => 
     next();
 };
 
-const authMiddleware: EndpointMiddleware = async (req, res, next, endpointInfo) => {
+const loggingMiddlewareTyped: EndpointMiddleware<typeof PrivateApiDefinition> = (req, res, next, endpointInfo) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - Endpoint: ${endpointInfo.domain}.${endpointInfo.routeKey}`);
+    next();
+};
+
+// Universal auth middleware that doesn't use endpointInfo
+const authMiddleware = async (req, res, next) => {
     // Example auth logic
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        console.log(`Auth failed for ${endpointInfo.domain}.${endpointInfo.routeKey} - No valid auth header`);
+        console.log(`Auth failed - No valid auth header`);
         res.status(401).json({ error: [{ field: "authorization", type: "general", message: "Unauthorized" }] });
         return;
     }
-
-    console.log(`Auth passed for ${endpointInfo.domain}.${endpointInfo.routeKey}`);
+    console.log(`Auth passed`);
     next();
 };
+
 
 // Register all handlers at once with middlewares
 RegisterHandlers(app, PublicApiDefinition, {
@@ -58,7 +64,7 @@ RegisterHandlers(app, PrivateApiDefinition, {
             res.respond(200, "ok");
         }
     }
-}, [authMiddleware]);
+}, [loggingMiddlewareTyped, authMiddleware]);
 
 app.listen(port, async () => {
     console.log(`Backend server listening at http://localhost:${port}`);

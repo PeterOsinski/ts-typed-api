@@ -4,12 +4,41 @@ import { registerRouteHandlers, SpecificRouteHandler } from "./handler";
 import { TypedRequest, TypedResponse } from "./router";
 
 // Type for middleware function that receives endpoint information
-export type EndpointMiddleware = (
+export type EndpointMiddleware<TDef extends ApiDefinitionSchema = ApiDefinitionSchema> = (
     req: express.Request,
     res: express.Response,
     next: express.NextFunction,
-    endpointInfo: { domain: string; routeKey: string }
+    endpointInfo: {
+        [TDomain in keyof TDef['endpoints']]: {
+            domain: TDomain;
+            routeKey: keyof TDef['endpoints'][TDomain];
+        }
+    }[keyof TDef['endpoints']]
 ) => void | Promise<void>;
+
+// Type for simple middleware that doesn't need endpoint information
+export type SimpleMiddleware = (
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+) => void | Promise<void>;
+
+// Type for middleware that can work with any API definition
+export type UniversalEndpointMiddleware = (
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+    endpointInfo: {
+        domain: string;
+        routeKey: string;
+    }
+) => void | Promise<void>;
+
+// Union type that accepts endpoint-aware, universal, and simple middleware
+export type AnyMiddleware<TDef extends ApiDefinitionSchema = ApiDefinitionSchema> =
+    | EndpointMiddleware<TDef>
+    | UniversalEndpointMiddleware
+    | SimpleMiddleware;
 
 // Type for a single handler function
 type HandlerFunction<
@@ -64,10 +93,25 @@ export function RegisterHandlers<TDef extends ApiDefinitionSchema>(
     app: express.Express,
     apiDefinition: TDef,
     objectHandlers: ObjectHandlers<TDef>,
-    middlewares?: EndpointMiddleware[]
+    middlewares?: AnyMiddleware<TDef>[]
 ): void {
     const handlerArray = transformObjectHandlersToArray(objectHandlers);
-    registerRouteHandlers(app, apiDefinition, handlerArray, middlewares);
+
+    // Convert AnyMiddleware to EndpointMiddleware by checking function arity
+    const endpointMiddlewares: EndpointMiddleware<TDef>[] = middlewares?.map(middleware => {
+        // Check if middleware expects 4 parameters (including endpointInfo)
+        if (middleware.length === 4) {
+            // It's already an EndpointMiddleware
+            return middleware as EndpointMiddleware<TDef>;
+        } else {
+            // It's a SimpleMiddleware, wrap it to ignore endpointInfo
+            return ((req, res, next) => {
+                return (middleware as SimpleMiddleware)(req, res, next);
+            }) as EndpointMiddleware<TDef>;
+        }
+    }) || [];
+
+    registerRouteHandlers(app, apiDefinition, handlerArray, endpointMiddlewares);
 }
 
 // Factory function to create a typed handler registrar for a specific API definition
@@ -77,7 +121,7 @@ export function makeObjectHandlerRegistrar<TDef extends ApiDefinitionSchema>(
     return function (
         app: express.Express,
         objectHandlers: ObjectHandlers<TDef>,
-        middlewares?: EndpointMiddleware[]
+        middlewares?: EndpointMiddleware<TDef>[]
     ): void {
         RegisterHandlers(app, apiDefinition, objectHandlers, middlewares);
     };

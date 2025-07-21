@@ -13,12 +13,17 @@ export type SpecificRouteHandler<TDef extends ApiDefinitionSchema> = {
     }[keyof TDef['endpoints'][TDomain_]]; // Get the union of all possible handler objects for TDomain_
 }[keyof TDef['endpoints']]; // Get the union of all possible handler objects for TDef
 
-// Type for middleware function that receives endpoint information
-type EndpointMiddleware = (
+// Type for middleware function that receives endpoint information with type safety
+export type EndpointMiddleware<TDef extends ApiDefinitionSchema = ApiDefinitionSchema> = (
     req: express.Request,
     res: express.Response,
     next: express.NextFunction,
-    endpointInfo: { domain: string; routeKey: string }
+    endpointInfo: {
+        [TDomain in keyof TDef['endpoints']]: {
+            domain: TDomain;
+            routeKey: keyof TDef['endpoints'][TDomain];
+        }
+    }[keyof TDef['endpoints']]
 ) => void | Promise<void>;
 
 // Helper function to preprocess query parameters for type coercion
@@ -224,7 +229,7 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
     app: express.Express,
     apiDefinition: TDef, // Pass the actual API definition object
     routeHandlers: Array<SpecificRouteHandler<TDef>>, // Use the generic handler type
-    middlewares?: EndpointMiddleware[]
+    middlewares?: EndpointMiddleware<TDef>[]
 ) {
     routeHandlers.forEach((specificHandlerIterationItem) => {
         const { domain, routeKey, handler } = specificHandlerIterationItem as any; // Use 'as any' for simplicity in destructuring union
@@ -412,7 +417,7 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
             middlewares.forEach(middleware => {
                 const wrappedMiddleware: express.RequestHandler = async (req, res, next) => {
                     try {
-                        await middleware(req, res, next, { domain: currentDomain, routeKey: currentRouteKey });
+                        await middleware(req, res, next, { domain: currentDomain, routeKey: currentRouteKey } as any);
                     } catch (error) {
                         next(error);
                     }
@@ -427,6 +432,8 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
         switch (method.toUpperCase()) {
             case 'GET': app.get(fullPath, ...allHandlers); break;
             case 'POST': app.post(fullPath, ...allHandlers); break;
+            case 'PATCH': app.patch(fullPath, ...allHandlers); break;
+            case 'OPTIONS': app.options(fullPath, ...allHandlers); break;
             case 'PUT': app.put(fullPath, ...allHandlers); break;
             case 'DELETE': app.delete(fullPath, ...allHandlers); break;
             default:
