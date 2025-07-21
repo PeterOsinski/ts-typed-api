@@ -3,17 +3,19 @@ import { ApiDefinitionSchema } from "./definition";
 import { registerRouteHandlers, SpecificRouteHandler } from "./handler";
 import { TypedRequest, TypedResponse } from "./router";
 
+export type EndpointInfo<TDef extends ApiDefinitionSchema = ApiDefinitionSchema> = {
+    [TDomain in keyof TDef['endpoints']]: {
+        domain: TDomain;
+        routeKey: keyof TDef['endpoints'][TDomain];
+    }
+}[keyof TDef['endpoints']]
+
 // Type for middleware function that receives endpoint information
 export type EndpointMiddleware<TDef extends ApiDefinitionSchema = ApiDefinitionSchema> = (
     req: express.Request,
     res: express.Response,
     next: express.NextFunction,
-    endpointInfo: {
-        [TDomain in keyof TDef['endpoints']]: {
-            domain: TDomain;
-            routeKey: keyof TDef['endpoints'][TDomain];
-        }
-    }[keyof TDef['endpoints']]
+    endpointInfo: EndpointInfo<TDef>
 ) => void | Promise<void>;
 
 // Type for simple middleware that doesn't need endpoint information
