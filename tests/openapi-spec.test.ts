@@ -186,4 +186,134 @@ describe('OpenAPI Specification Generation', () => {
         // The enum should either have values or be a basic string type (no empty enum arrays)
         expect(resultProperty.enum.length).toBeGreaterThan(0);
     });
+
+    test('should handle nested object arrays correctly', () => {
+        // Test case for nested object array structure
+        const s1 = z.object({
+            version: z.number(),
+        });
+
+        const s2 = z.object({
+            versions: z.array(s1),
+        });
+
+        const NestedArrayTestDefinition = CreateApiDefinition({
+            endpoints: {
+                test: {
+                    nestedArrayEndpoint: {
+                        method: 'POST' as const,
+                        path: '/test/nested-array',
+                        body: s2,
+                        responses: {
+                            200: z.object({
+                                data: s2,
+                                success: z.boolean()
+                            })
+                        }
+                    }
+                }
+            }
+        });
+
+        const spec = generateOpenApiSpec(NestedArrayTestDefinition);
+
+        expect(spec).toBeDefined();
+        expect(spec.paths).toBeDefined();
+        expect(spec.components?.schemas).toBeDefined();
+
+        const nestedArrayEndpoint = spec.paths['/test/nested-array'];
+        expect(nestedArrayEndpoint).toBeDefined();
+        expect(nestedArrayEndpoint.post).toBeDefined();
+
+        // Check request body schema
+        const requestBodySchema = nestedArrayEndpoint.post?.requestBody?.content?.['application/json']?.schema;
+        expect(requestBodySchema).toBeDefined();
+
+        // The schema should be a reference to components
+        expect(requestBodySchema?.$ref).toBeDefined();
+        const schemaName = requestBodySchema?.$ref?.split('/').pop();
+        const actualSchema = spec.components?.schemas?.[schemaName!];
+        expect(actualSchema).toBeDefined();
+
+        expect(actualSchema?.type).toBe('object');
+        expect(actualSchema?.properties).toBeDefined();
+
+        // Verify the versions property is an array
+        const versionsProperty = actualSchema?.properties?.versions;
+        expect(versionsProperty).toBeDefined();
+        expect(versionsProperty?.type).toBe('array');
+        expect(versionsProperty?.items).toBeDefined();
+
+        // The array items should properly reference the nested object schema (s1)
+        const arrayItemsSchema = versionsProperty?.items;
+        if (arrayItemsSchema?.$ref) {
+            // If it's a reference, resolve it and check the object structure
+            const itemSchemaName = arrayItemsSchema.$ref.split('/').pop();
+            const itemSchema = spec.components?.schemas?.[itemSchemaName!];
+            expect(itemSchema).toBeDefined();
+            expect(itemSchema?.type).toBe('object');
+            expect(itemSchema?.properties?.version).toBeDefined();
+            expect(itemSchema?.properties?.version?.type).toBe('number');
+        } else {
+            // If it's inline, it should be an object with version property
+            expect(arrayItemsSchema?.type).toBe('object');
+            expect(arrayItemsSchema?.properties?.version).toBeDefined();
+            expect(arrayItemsSchema?.properties?.version?.type).toBe('number');
+        }
+
+        // Check response schema structure
+        const responseSchema = nestedArrayEndpoint.post?.responses?.['200']?.content?.['application/json']?.schema;
+        expect(responseSchema).toBeDefined();
+
+        expect(responseSchema?.$ref).toBeDefined();
+        const responseSchemaName = responseSchema?.$ref?.split('/').pop();
+        const actualResponseSchema = spec.components?.schemas?.[responseSchemaName!];
+        expect(actualResponseSchema).toBeDefined();
+
+        expect(actualResponseSchema?.type).toBe('object');
+        expect(actualResponseSchema?.properties).toBeDefined();
+        expect(actualResponseSchema?.properties?.data).toBeDefined();
+        expect(actualResponseSchema?.properties?.success).toBeDefined();
+        expect(actualResponseSchema?.properties?.success?.type).toBe('boolean');
+
+        // Verify that the nested data property has the correct structure
+        const dataProperty = actualResponseSchema?.properties?.data;
+        if (dataProperty?.$ref) {
+            // If data is a reference, resolve it
+            const dataSchemaName = dataProperty.$ref.split('/').pop();
+            const dataSchema = spec.components?.schemas?.[dataSchemaName!];
+            expect(dataSchema).toBeDefined();
+            expect(dataSchema?.type).toBe('object');
+            expect(dataSchema?.properties?.versions).toBeDefined();
+            expect(dataSchema?.properties?.versions?.type).toBe('array');
+
+            // The versions array items should be objects with version property
+            const dataVersionsItems = dataSchema?.properties?.versions?.items;
+            if (dataVersionsItems?.$ref) {
+                const dataItemSchemaName = dataVersionsItems.$ref.split('/').pop();
+                const dataItemSchema = spec.components?.schemas?.[dataItemSchemaName!];
+                expect(dataItemSchema?.type).toBe('object');
+                expect(dataItemSchema?.properties?.version?.type).toBe('number');
+            } else {
+                expect(dataVersionsItems?.type).toBe('object');
+                expect(dataVersionsItems?.properties?.version?.type).toBe('number');
+            }
+        } else {
+            // If data is inline
+            expect(dataProperty?.type).toBe('object');
+            expect(dataProperty?.properties?.versions).toBeDefined();
+            expect(dataProperty?.properties?.versions?.type).toBe('array');
+
+            const dataVersionsItems = dataProperty?.properties?.versions?.items;
+            if (dataVersionsItems?.$ref) {
+                const dataItemSchemaName = dataVersionsItems.$ref.split('/').pop();
+                const dataItemSchema = spec.components?.schemas?.[dataItemSchemaName!];
+                expect(dataItemSchema?.type).toBe('object');
+                expect(dataItemSchema?.properties?.version?.type).toBe('number');
+            } else {
+                expect(dataVersionsItems?.type).toBe('object');
+                expect(dataVersionsItems?.properties?.version?.type).toBe('number');
+            }
+        }
+    });
 });

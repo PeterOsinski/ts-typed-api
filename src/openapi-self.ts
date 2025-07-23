@@ -270,10 +270,50 @@ class SchemaRegistry {
             }
 
             if (zodSchema instanceof ZodArray) {
-                const itemType = getZodType(zodSchema);
+                // Try multiple ways to get the array item type
+                let itemType: ZodTypeAny | undefined;
+
+                // Method 1: Try _def.element (this is the correct property for ZodArray)
+                try {
+                    const def = getZodDef(zodSchema);
+                    if (def && def.element && typeof def.element === 'object' && def.element.constructor) {
+                        itemType = def.element;
+                    }
+                } catch (error) {
+                    // Continue to next method
+                }
+
+                // Method 2: Try getZodType if method 1 failed
+                if (!itemType) {
+                    const typeResult = getZodType(zodSchema);
+                    if (typeResult && typeof typeResult === 'object' && typeResult.constructor) {
+                        itemType = typeResult;
+                    }
+                }
+
+                // Method 3: Direct access to _def.element as fallback
+                if (!itemType) {
+                    try {
+                        const directElement = (zodSchema as any)._def?.element;
+                        if (directElement && typeof directElement === 'object' && directElement.constructor) {
+                            itemType = directElement;
+                        }
+                    } catch (error) {
+                        // Continue to fallback
+                    }
+                }
+
+                if (itemType) {
+                    return {
+                        type: 'array',
+                        items: this.zodToOpenAPI(itemType, shouldRegister)
+                    };
+                }
+
+                // Ultimate fallback
                 return {
                     type: 'array',
-                    items: itemType ? this.zodToOpenAPI(itemType, shouldRegister) : { type: 'string' }
+                    items: { type: 'string' }
                 };
             }
 
