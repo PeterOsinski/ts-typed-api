@@ -93,6 +93,87 @@ export interface OpenAPIOptions {
     }>;
 }
 
+// Type-safe helper functions for accessing Zod internal properties
+function getZodDef(schema: ZodTypeAny): any {
+    try {
+        return (schema as any)._def;
+    } catch {
+        return undefined;
+    }
+}
+
+function getZodInnerType(schema: ZodTypeAny): ZodTypeAny | undefined {
+    try {
+        const def = getZodDef(schema);
+        return def?.innerType;
+    } catch {
+        return undefined;
+    }
+}
+
+function getZodTypeName(schema: ZodTypeAny): string | undefined {
+    try {
+        const def = getZodDef(schema);
+        return def?.typeName;
+    } catch {
+        return undefined;
+    }
+}
+
+function getZodOptions(schema: ZodTypeAny): any[] | undefined {
+    try {
+        const def = getZodDef(schema);
+        return Array.isArray(def?.options) ? def.options : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function getZodValues(schema: ZodTypeAny): any[] | undefined {
+    try {
+        const def = getZodDef(schema);
+        return Array.isArray(def?.values) ? def.values : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function getZodValue(schema: ZodTypeAny): any {
+    try {
+        const def = getZodDef(schema);
+        return def?.value;
+    } catch {
+        return undefined;
+    }
+}
+
+function getZodType(schema: ZodTypeAny): ZodTypeAny | undefined {
+    try {
+        const def = getZodDef(schema);
+        return def?.type;
+    } catch {
+        return undefined;
+    }
+}
+
+function getZodValueType(schema: ZodTypeAny): ZodTypeAny | undefined {
+    try {
+        const def = getZodDef(schema);
+        return def?.valueType;
+    } catch {
+        return undefined;
+    }
+}
+
+function getZodShape(schema: ZodTypeAny): Record<string, ZodTypeAny> | undefined {
+    try {
+        const def = getZodDef(schema);
+        return def?.shape && typeof def.shape === 'object' ? def.shape : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
 // Schema registry to avoid duplicate schema definitions
 class SchemaRegistry {
     private schemas: Map<string, SchemaObject> = new Map();
@@ -126,7 +207,7 @@ class SchemaRegistry {
         try {
             // Handle ZodOptional
             if (zodSchema instanceof ZodOptional) {
-                const innerType = (zodSchema as any)._def?.innerType;
+                const innerType = getZodInnerType(zodSchema);
                 if (innerType) {
                     return this.zodToOpenAPI(innerType, shouldRegister);
                 }
@@ -134,7 +215,7 @@ class SchemaRegistry {
 
             // Handle ZodNullable
             if (zodSchema instanceof ZodNullable) {
-                const innerType = (zodSchema as any)._def?.innerType;
+                const innerType = getZodInnerType(zodSchema);
                 if (innerType) {
                     const innerSchema = this.zodToOpenAPI(innerType, shouldRegister);
                     return { ...innerSchema, nullable: true };
@@ -143,8 +224,8 @@ class SchemaRegistry {
 
             // Handle ZodUnion
             if (zodSchema instanceof ZodUnion) {
-                const options = (zodSchema as any)._def?.options;
-                if (options && Array.isArray(options)) {
+                const options = getZodOptions(zodSchema);
+                if (options) {
                     return { oneOf: options.map((option: any) => this.zodToOpenAPI(option, shouldRegister)) };
                 }
             }
@@ -163,15 +244,15 @@ class SchemaRegistry {
             }
 
             if (zodSchema instanceof ZodEnum) {
-                const values = (zodSchema as any)._def?.values;
+                const values = getZodValues(zodSchema);
                 return {
                     type: 'string',
-                    enum: Array.isArray(values) ? values : []
+                    enum: values || []
                 };
             }
 
             if (zodSchema instanceof ZodLiteral) {
-                const value = (zodSchema as any)._def?.value;
+                const value = getZodValue(zodSchema);
                 return {
                     type: typeof value as any,
                     enum: [value]
@@ -179,7 +260,7 @@ class SchemaRegistry {
             }
 
             if (zodSchema instanceof ZodArray) {
-                const itemType = (zodSchema as any)._def?.type;
+                const itemType = getZodType(zodSchema);
                 return {
                     type: 'array',
                     items: itemType ? this.zodToOpenAPI(itemType, shouldRegister) : { type: 'string' }
@@ -187,8 +268,8 @@ class SchemaRegistry {
             }
 
             if (zodSchema instanceof ZodObject) {
-                const shape = (zodSchema as any)._def?.shape;
-                if (shape && typeof shape === 'object') {
+                const shape = getZodShape(zodSchema);
+                if (shape) {
                     // For complex objects, register them as components if requested
                     if (shouldRegister && Object.keys(shape).length > 0) {
                         const schemaName = this.register(zodSchema);
@@ -223,7 +304,7 @@ class SchemaRegistry {
             }
 
             if (zodSchema instanceof ZodRecord) {
-                const valueType = (zodSchema as any)._def?.valueType;
+                const valueType = getZodValueType(zodSchema);
                 return {
                     type: 'object',
                     additionalProperties: valueType ? this.zodToOpenAPI(valueType, shouldRegister) : { type: 'string' }
@@ -256,11 +337,11 @@ class SchemaRegistry {
                 case 'ZodObject':
                 case 'Object':
                     return { type: 'object', additionalProperties: true };
-                default:
+                default: {
                     // Final fallback - try to infer from the schema structure
-                    const def = (zodSchema as any)._def;
-                    if (def && def.typeName) {
-                        switch (def.typeName) {
+                    const typeName = getZodTypeName(zodSchema);
+                    if (typeName) {
+                        switch (typeName) {
                             case 'ZodString':
                                 return { type: 'string' };
                             case 'ZodNumber':
@@ -274,6 +355,7 @@ class SchemaRegistry {
                         }
                     }
                     return { type: 'string' }; // Ultimate fallback
+                }
             }
         } catch (error) {
             // If anything fails, return a basic string type
@@ -303,7 +385,7 @@ function createParameters(
     // Add path parameters
     if (pathParams.length > 0 && paramsSchema instanceof ZodObject && registry) {
         try {
-            const shape = (paramsSchema as any)._def?.shape;
+            const shape = getZodShape(paramsSchema);
             if (shape) {
                 for (const paramName of pathParams) {
                     const paramSchema = shape[paramName];
@@ -333,7 +415,7 @@ function createParameters(
     // Add query parameters
     if (querySchema instanceof ZodObject && registry) {
         try {
-            const shape = (querySchema as any)._def?.shape;
+            const shape = getZodShape(querySchema);
             if (shape) {
                 for (const [queryName, queryZodSchema] of Object.entries(shape)) {
                     const zodValue = queryZodSchema as ZodTypeAny;
