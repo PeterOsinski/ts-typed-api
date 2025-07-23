@@ -1,5 +1,5 @@
 import { ApiDefinitionSchema, RouteSchema } from './definition';
-import { OpenAPIRegistry, OpenApiGeneratorV3, extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+import { OpenAPIRegistry, OpenApiGeneratorV31, extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z, ZodTypeAny } from 'zod';
 
 // Extend Zod with OpenAPI capabilities
@@ -129,9 +129,9 @@ export function generateOpenApiSpec(
     });
 
     // Generate the OpenAPI document
-    const generator = new OpenApiGeneratorV3(registry.definitions);
+    const generator = new OpenApiGeneratorV31(registry.definitions);
     const openApiDocument = generator.generateDocument({
-        openapi: '3.0.0',
+        openapi: '3.1.0',
         info: {
             title: options.info?.title ?? 'My API',
             version: options.info?.version ?? '1.0.0',
