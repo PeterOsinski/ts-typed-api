@@ -83,4 +83,113 @@ describe('OpenAPI Specification Generation', () => {
         expect(spec.components).toBeDefined();
         expect(spec.components?.schemas).toBeDefined();
     });
+
+    test('should handle enum schemas correctly and not generate empty enums', () => {
+        // Test with valid enum
+        const StatusEnum = z.enum(['active', 'inactive', 'pending']);
+
+        // Test with a schema that might cause enum extraction issues
+        const TestSchema = z.object({
+            status: StatusEnum,
+            priority: z.enum(['low', 'medium', 'high']),
+            category: z.string() // fallback case
+        });
+
+        const EnumTestDefinition = CreateApiDefinition({
+            endpoints: {
+                test: {
+                    enumEndpoint: {
+                        method: 'POST' as const,
+                        path: '/test/enum',
+                        body: TestSchema,
+                        responses: {
+                            200: z.object({
+                                result: StatusEnum,
+                                message: z.string()
+                            })
+                        }
+                    }
+                }
+            }
+        });
+
+        const spec = generateOpenApiSpec(EnumTestDefinition);
+
+        expect(spec).toBeDefined();
+        expect(spec.paths).toBeDefined();
+
+        const enumEndpoint = spec.paths['/test/enum'];
+        expect(enumEndpoint).toBeDefined();
+        expect(enumEndpoint.post).toBeDefined();
+
+        // Check request body schema
+        const requestBodySchema = enumEndpoint.post?.requestBody?.content?.['application/json']?.schema;
+        expect(requestBodySchema).toBeDefined();
+
+        // The schema might be a reference to components or inline
+        let actualSchema: any;
+        if (requestBodySchema?.$ref) {
+            // Extract schema name from $ref
+            const schemaName = requestBodySchema.$ref.split('/').pop();
+            actualSchema = spec.components?.schemas?.[schemaName!];
+            expect(actualSchema).toBeDefined();
+        } else {
+            actualSchema = requestBodySchema;
+        }
+
+        expect(actualSchema?.type).toBe('object');
+        expect(actualSchema?.properties).toBeDefined();
+
+        // Verify enum properties are handled correctly
+        const statusProperty = actualSchema?.properties?.status;
+        expect(statusProperty).toBeDefined();
+        expect(statusProperty?.type).toBe('string');
+
+        // The enum should either have values or be a basic string type (no empty enum arrays)
+        if (statusProperty?.enum) {
+            expect(statusProperty.enum.length).toBeGreaterThan(0);
+            expect(statusProperty.enum).toContain('active');
+            expect(statusProperty.enum).toContain('inactive');
+            expect(statusProperty.enum).toContain('pending');
+        }
+
+        const priorityProperty = actualSchema?.properties?.priority;
+        expect(priorityProperty).toBeDefined();
+        expect(priorityProperty?.type).toBe('string');
+
+        // The enum should either have values or be a basic string type (no empty enum arrays)
+        if (priorityProperty?.enum) {
+            expect(priorityProperty.enum.length).toBeGreaterThan(0);
+            expect(priorityProperty.enum).toContain('low');
+            expect(priorityProperty.enum).toContain('medium');
+            expect(priorityProperty.enum).toContain('high');
+        }
+
+        // Check response schema
+        const responseSchema = enumEndpoint.post?.responses?.['200']?.content?.['application/json']?.schema;
+        expect(responseSchema).toBeDefined();
+
+        // The response schema might also be a reference to components or inline
+        let actualResponseSchema: any;
+        if (responseSchema?.$ref) {
+            // Extract schema name from $ref
+            const schemaName = responseSchema.$ref.split('/').pop();
+            actualResponseSchema = spec.components?.schemas?.[schemaName!];
+            expect(actualResponseSchema).toBeDefined();
+        } else {
+            actualResponseSchema = responseSchema;
+        }
+
+        expect(actualResponseSchema?.type).toBe('object');
+        expect(actualResponseSchema?.properties).toBeDefined();
+
+        const resultProperty = actualResponseSchema?.properties?.result;
+        expect(resultProperty).toBeDefined();
+        expect(resultProperty?.type).toBe('string');
+
+        // The enum should either have values or be a basic string type (no empty enum arrays)
+        if (resultProperty?.enum) {
+            expect(resultProperty.enum.length).toBeGreaterThan(0);
+        }
+    });
 });

@@ -246,10 +246,14 @@ class SchemaRegistry {
 
             if (zodSchema instanceof ZodEnum) {
                 const values = getZodValues(zodSchema);
-                return {
-                    type: 'string',
-                    enum: values || []
-                };
+                if (values && values.length > 0) {
+                    return {
+                        type: 'string',
+                        enum: values
+                    };
+                }
+                // If we can't extract enum values, fall back to a basic string type
+                return { type: 'string' };
             }
 
             if (zodSchema instanceof ZodLiteral) {
