@@ -152,16 +152,39 @@ export interface FileUploadConfig {
     };
 }
 
-// Define the structure for a single API route
-export interface RouteSchema {
+// HTTP methods that should not have a body
+type MethodsWithoutBody = 'GET' | 'HEAD' | 'OPTIONS';
+
+// HTTP methods that can have a body
+type MethodsWithBody = 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+
+// Type alias for all supported HTTP methods
+export type HttpMethod = MethodsWithoutBody | MethodsWithBody;
+
+// Route schema for methods that cannot have a body (GET, HEAD, OPTIONS)
+type RouteWithoutBody = {
+    method: MethodsWithoutBody;
     path: string;
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'OPTIONS' | 'HEAD'; // Add more methods as needed
     params?: ZodTypeAny;
     query?: ZodTypeAny;
-    body?: ZodTypeAny;
-    fileUpload?: FileUploadConfig; // Optional file upload configuration
-    responses: Record<number, ZodTypeAny>; // Maps HTTP status codes to Zod schemas
-}
+    body?: never;           // Explicitly prevent body
+    fileUpload?: never;     // Explicitly prevent file uploads
+    responses: Record<number, ZodTypeAny>;
+};
+
+// Route schema for methods that can have a body (POST, PUT, DELETE, PATCH)
+type RouteWithBody = {
+    method: MethodsWithBody;
+    path: string;
+    params?: ZodTypeAny;
+    query?: ZodTypeAny;
+    body?: ZodTypeAny;      // Allow body
+    fileUpload?: FileUploadConfig; // Allow file uploads
+    responses: Record<number, ZodTypeAny>;
+};
+
+// Union type for all route schemas
+export type RouteSchema = RouteWithoutBody | RouteWithBody;
 
 // Define the structure for the entire API definition object
 // Now includes an optional prefix and endpoints record
@@ -173,7 +196,9 @@ export type ApiDefinitionSchema = {
 // Helper function to ensure the definition conforms to ApiDefinitionSchema
 // while preserving the literal types of the passed object.
 // Also applies strict validation to all Zod schemas in the definition.
-export function CreateApiDefinition<T extends ApiDefinitionSchema>(definition: T): T {
+export function CreateApiDefinition<T extends ApiDefinitionSchema>(
+    definition: T
+): T {
     // Create a new definition object with strict schemas
     const strictDefinition = { ...definition };
     strictDefinition.endpoints = { ...definition.endpoints };

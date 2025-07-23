@@ -10,7 +10,6 @@ export const PublicApiDefinition = CreateApiDefinition({
                 query: z.object({
                     match: z.boolean()
                 }),
-                body: z.object({}),
                 params: z.object({}),
                 responses: CreateResponses({
                     200: z.enum(["pong"]),

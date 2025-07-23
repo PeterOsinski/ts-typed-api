@@ -91,6 +91,7 @@ export interface OpenAPIOptions {
         url: string;
         description?: string;
     }>;
+    anonymousTypes?: boolean;
 }
 
 // Type-safe helper functions for accessing Zod internal properties
@@ -435,7 +436,7 @@ function createParameters(
     return parameters;
 }
 
-function createRequestBody(bodySchema?: ZodTypeAny, registry?: SchemaRegistry): RequestBody | undefined {
+function createRequestBody(bodySchema?: ZodTypeAny, registry?: SchemaRegistry, anonymousTypes: boolean = false): RequestBody | undefined {
     if (!bodySchema || !registry) {
         return undefined;
     }
@@ -444,13 +445,13 @@ function createRequestBody(bodySchema?: ZodTypeAny, registry?: SchemaRegistry): 
         required: true,
         content: {
             'application/json': {
-                schema: registry.zodToOpenAPI(bodySchema, true) // Register complex schemas
+                schema: registry.zodToOpenAPI(bodySchema, !anonymousTypes) // Register complex schemas only if not using anonymous types
             }
         }
     };
 }
 
-function createResponses(responses: Record<number, ZodTypeAny>, registry: SchemaRegistry): Record<string, Response> {
+function createResponses(responses: Record<number, ZodTypeAny>, registry: SchemaRegistry, anonymousTypes: boolean = false): Record<string, Response> {
     const openApiResponses: Record<string, Response> = {};
 
     for (const [statusCode, responseSchema] of Object.entries(responses)) {
@@ -466,7 +467,7 @@ function createResponses(responses: Record<number, ZodTypeAny>, registry: Schema
                 description: getResponseDescription(parseInt(status)),
                 content: {
                     'application/json': {
-                        schema: registry.zodToOpenAPI(responseSchema, true) // Register complex schemas
+                        schema: registry.zodToOpenAPI(responseSchema, !anonymousTypes) // Register complex schemas only if not using anonymous types
                     }
                 }
             };
@@ -498,12 +499,13 @@ function processRoute(
     route: RouteSchema,
     fullPath: string,
     registry: SchemaRegistry,
-    domain: string
+    domain: string,
+    anonymousTypes: boolean = false
 ): Operation {
     const pathParams = extractPathParameters(route.path);
     const parameters = createParameters(pathParams, route.params, route.query, registry);
-    const requestBody = createRequestBody(route.body, registry);
-    const responses = createResponses(route.responses, registry);
+    const requestBody = createRequestBody(route.body, registry, anonymousTypes);
+    const responses = createResponses(route.responses, registry, anonymousTypes);
 
     const operation: Operation = {
         summary: `${route.method} ${fullPath}`,
@@ -525,7 +527,8 @@ function processRoute(
 
 function processApiDefinition(
     definition: ApiDefinitionSchema,
-    registry: SchemaRegistry
+    registry: SchemaRegistry,
+    anonymousTypes: boolean = false
 ): Record<string, PathItem> {
     const paths: Record<string, PathItem> = {};
 
@@ -538,7 +541,7 @@ function processApiDefinition(
                 paths[openApiPath] = {};
             }
 
-            const operation = processRoute(route, fullPath, registry, domain);
+            const operation = processRoute(route, fullPath, registry, domain, anonymousTypes);
             const method = route.method.toLowerCase() as keyof PathItem;
 
             (paths[openApiPath] as any)[method] = operation;
@@ -554,12 +557,13 @@ export function generateOpenApiSpec(
 ): OpenAPISpec {
     const registry = new SchemaRegistry();
     const definitionsArray = Array.isArray(definitions) ? definitions : [definitions];
+    const anonymousTypes = options.anonymousTypes || false;
 
     const allPaths: Record<string, PathItem> = {};
 
     // Process each definition
     for (const definition of definitionsArray) {
-        const paths = processApiDefinition(definition, registry);
+        const paths = processApiDefinition(definition, registry, anonymousTypes);
 
         // Merge paths, handling potential conflicts
         for (const [path, pathItem] of Object.entries(paths)) {
@@ -587,12 +591,14 @@ export function generateOpenApiSpec(
         spec.servers = options.servers;
     }
 
-    // Add components with schemas if any were registered
-    const schemas = registry.getSchemas();
-    if (Object.keys(schemas).length > 0) {
-        spec.components = {
-            schemas
-        };
+    // Add components with schemas if any were registered and not using anonymous types
+    if (!anonymousTypes) {
+        const schemas = registry.getSchemas();
+        if (Object.keys(schemas).length > 0) {
+            spec.components = {
+                schemas
+            };
+        }
     }
 
     return spec;
