@@ -1,5 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
-import { generateOpenApiSpec } from '../src/openapi';
+import { generateOpenApiSpec } from '../src/openapi-self';
 import { PublicApiDefinition } from '../examples/simple/definitions';
 import { PrivateApiDefinition } from '../examples/simple/definitions';
 import { z } from 'zod';
