@@ -1,6 +1,6 @@
 {
   "name": "ts-typed-api",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "A lightweight, type-safe RPC library for TypeScript with Zod validation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -43,12 +43,13 @@
   "author": "Piotr Osinski",
   "license": "ISC",
   "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^8.0.0",
     "@types/express": "^5.0.3",
     "@types/multer": "^1.4.13",
     "@types/node": "^24.0.3",
     "express": "^5.1.0",
     "multer": "^2.0.1",
-    "zod": "^3.22.4"
+    "zod": "^4.0.5"
   },
   "devDependencies": {
     "@types/jest": "^29.5.5",

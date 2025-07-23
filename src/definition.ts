@@ -65,7 +65,7 @@ type CreateResponsesReturnType<InputSchemas extends Partial<Record<AllowedInputS
     // For each status KStatus provided in InputSchemas (which are AllowedInputStatusCode),
     // the response schema wraps InputSchemas[KStatus] in a success structure.
     [KStatus in keyof InputSchemas]: InputSchemas[KStatus] extends TsTypeMarker<infer T>
-    ? z.ZodObject<{ data: ZodType<T, z.ZodTypeDef, T> }> // If TsTypeMarker<T>, data infers to T
+    ? z.ZodObject<{ data: z.ZodType<T> }> // If TsTypeMarker<T>, data infers to T
     : InputSchemas[KStatus] extends ZodTypeAny
     ? z.ZodObject<{ data: InputSchemas[KStatus] }> // If ZodTypeAny, data infers to z.infer<InputSchemas[KStatus]>
     : never;

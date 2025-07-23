@@ -341,7 +341,7 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                     } else {
                         console.error(
                             `FATAL: Constructed response body failed Zod validation for status ${status} in route ${String(currentDomain)}/${String(currentRouteKey)}. This indicates an issue with respond logic or schemas.`,
-                            validationResult.error.errors
+                            validationResult.error.issues
                         );
                         console.error("Response body was:", responseBodyToValidate);
                         typedExpressRes.status(500).json({
@@ -360,7 +360,7 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
 
             } catch (error) {
                 if (error instanceof z.ZodError) {
-                    const mappedErrors: UnifiedError = error.errors.map(err => {
+                    const mappedErrors: UnifiedError = error.issues.map(err => {
                         let errorType: 'param' | 'query' | 'body' | 'general' = 'general';
                         const pathZero = String(err.path[0]); // Ensure pathZero is a string
                         if (pathZero === 'params') errorType = 'param'; // Corrected: 'params' from path maps to 'param' type
@@ -382,7 +382,7 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                         if (validationResult.success) {
                             expressRes.status(422).json(validationResult.data);
                         } else {
-                            console.error("FATAL: Constructed 422 error response failed its own schema validation.", validationResult.error.errors);
+                            console.error("FATAL: Constructed 422 error response failed its own schema validation.", validationResult.error.issues);
                             expressRes.status(500).json({ error: [{ field: "general", type: "general", message: "Internal server error constructing validation error response." }] });
                         }
                     } else {

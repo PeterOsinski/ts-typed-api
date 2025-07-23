@@ -227,7 +227,7 @@ describe('Strict Validation Tests', () => {
             expect(result.success).toBe(false);
 
             if (!result.success) {
-                const errorMessages = result.error.errors.map(err => err.message);
+                const errorMessages = result.error.issues.map((err: { message: string }) => err.message);
                 expect(errorMessages.some(msg => msg.includes('Unrecognized key'))).toBe(true);
             }
         });
@@ -261,7 +261,7 @@ describe('Strict Validation Tests', () => {
 
             expect(bodyResult?.success).toBe(false);
             if (bodyResult && !bodyResult.success) {
-                const errorMessages = bodyResult.error.errors.map(err => err.message);
+                const errorMessages = bodyResult.error.issues.map((err: { message: string }) => err.message);
                 expect(errorMessages.some(msg => msg.includes('Unrecognized key'))).toBe(true);
             }
         });
