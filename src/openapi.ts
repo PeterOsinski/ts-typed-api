@@ -116,7 +116,7 @@ export function generateOpenApiSpec(
 
                 // Register the route with the registry
                 // The path needs to be transformed from Express-style (:param) to OpenAPI-style ({param})
-                const openApiPath = route.path.replace(/:(\w+)/g, '{$1}');
+                const openApiPath = `/${definition.prefix ?? ''}${route.path}`.replace(/\/+/g, '/').replace(/:(\w+)/g, '{$1}');
 
                 registry.registerPath({
                     method: route.method.toLowerCase() as any, // Ensure method is lowercase
