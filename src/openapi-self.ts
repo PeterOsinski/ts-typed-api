@@ -133,6 +133,11 @@ function getZodOptions(schema: ZodTypeAny): any[] | undefined {
 function getZodValues(schema: ZodTypeAny): any[] | undefined {
     try {
         const def = getZodDef(schema);
+        // Handle Zod enum entries (both z.enum and z.nativeEnum)
+        if (def?.entries && typeof def.entries === 'object') {
+            return Object.values(def.entries);
+        }
+        // Fallback for other structures that might use values array
         return Array.isArray(def?.values) ? def.values : undefined;
     } catch {
         return undefined;

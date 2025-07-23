@@ -146,24 +146,20 @@ describe('OpenAPI Specification Generation', () => {
         expect(statusProperty?.type).toBe('string');
 
         // The enum should either have values or be a basic string type (no empty enum arrays)
-        if (statusProperty?.enum) {
-            expect(statusProperty.enum.length).toBeGreaterThan(0);
-            expect(statusProperty.enum).toContain('active');
-            expect(statusProperty.enum).toContain('inactive');
-            expect(statusProperty.enum).toContain('pending');
-        }
+        expect(statusProperty.enum.length).toBeGreaterThan(0);
+        expect(statusProperty.enum).toContain('active');
+        expect(statusProperty.enum).toContain('inactive');
+        expect(statusProperty.enum).toContain('pending');
 
         const priorityProperty = actualSchema?.properties?.priority;
         expect(priorityProperty).toBeDefined();
         expect(priorityProperty?.type).toBe('string');
 
         // The enum should either have values or be a basic string type (no empty enum arrays)
-        if (priorityProperty?.enum) {
-            expect(priorityProperty.enum.length).toBeGreaterThan(0);
-            expect(priorityProperty.enum).toContain('low');
-            expect(priorityProperty.enum).toContain('medium');
-            expect(priorityProperty.enum).toContain('high');
-        }
+        expect(priorityProperty.enum.length).toBeGreaterThan(0);
+        expect(priorityProperty.enum).toContain('low');
+        expect(priorityProperty.enum).toContain('medium');
+        expect(priorityProperty.enum).toContain('high');
 
         // Check response schema
         const responseSchema = enumEndpoint.post?.responses?.['200']?.content?.['application/json']?.schema;
@@ -188,8 +184,6 @@ describe('OpenAPI Specification Generation', () => {
         expect(resultProperty?.type).toBe('string');
 
         // The enum should either have values or be a basic string type (no empty enum arrays)
-        if (resultProperty?.enum) {
-            expect(resultProperty.enum.length).toBeGreaterThan(0);
-        }
+        expect(resultProperty.enum.length).toBeGreaterThan(0);
     });
 });
