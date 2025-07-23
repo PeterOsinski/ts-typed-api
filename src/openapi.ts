@@ -6,7 +6,7 @@ import { z, ZodTypeAny } from 'zod';
 extendZodWithOpenApi(z);
 
 export function generateOpenApiSpec(
-    definition: ApiDefinitionSchema,
+    definitions: ApiDefinitionSchema | ApiDefinitionSchema[],
     options: {
         info?: {
             title?: string;
@@ -16,12 +16,17 @@ export function generateOpenApiSpec(
         servers?: { url: string, description?: string }[];
     } = {}
 ) {
+    // Normalize input to always be an array
+    const definitionArray = Array.isArray(definitions) ? definitions : [definitions];
+
     const registry = new OpenAPIRegistry();
 
     // Helper to convert Zod schema to OpenAPI schema component
     function registerSchema(name: string, schema: ZodTypeAny) {
         try {
-            return registry.register(name, schema as any); // Cast to any to handle complex Zod types
+            // Add a unique identifier to ensure no schema name conflicts across multiple definitions
+            const uniqueName = `${name}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+            return registry.register(uniqueName, schema as any); // Cast to any to handle complex Zod types
         } catch (error) {
             console.warn(`Could not register schema ${name}: ${(error as Error).message}`);
             // Fallback or simplified schema if registration fails
@@ -37,7 +42,7 @@ export function generateOpenApiSpec(
             name: key,
             in: inType,
             required: !val.isOptional(),
-            schema: registerSchema(`${inType}_${key}_${Date.now()}`, val), // Unique name for registration
+            schema: registerSchema(`${inType}_${key}`, val), // Unique name for registration
             description: val.description,
         }));
     }
@@ -48,76 +53,77 @@ export function generateOpenApiSpec(
             required: true, // Assuming body is required if schema is provided
             content: {
                 'application/json': {
-                    schema: registerSchema(`RequestBody_${Date.now()}`, schema), // Unique name
+                    schema: registerSchema('RequestBody', schema), // Unique name
                 },
             },
         };
     }
 
-    // Iterate over the API definition to register routes
-    Object.keys(definition.endpoints).forEach(domainNameKey => {
-        // domainNameKey is a string, representing the domain like 'users', 'products'
-        const domain = definition.endpoints[domainNameKey];
-        Object.keys(domain).forEach(routeNameKey => {
-            // routeNameKey is a string, representing the route name like 'getUser', 'createProduct'
-            const route: RouteSchema = domain[routeNameKey];
+    // Iterate over multiple API definitions to register routes
+    definitionArray.forEach((definition) => {
+        Object.keys(definition.endpoints).forEach(domainNameKey => {
+            // domainNameKey is a string, representing the domain like 'users', 'products'
+            const domain = definition.endpoints[domainNameKey];
+            Object.keys(domain).forEach(routeNameKey => {
+                // routeNameKey is a string, representing the route name like 'getUser', 'createProduct'
+                const route: RouteSchema = domain[routeNameKey];
 
-            const parameters: any[] = [];
-            if (route.params) {
-                parameters.push(...zodSchemaToOpenApiParameter(route.params, 'path'));
-            }
-            if (route.query) {
-                parameters.push(...zodSchemaToOpenApiParameter(route.query, 'query'));
-            }
+                const parameters: any[] = [];
+                if (route.params) {
+                    parameters.push(...zodSchemaToOpenApiParameter(route.params, 'path'));
+                }
+                if (route.query) {
+                    parameters.push(...zodSchemaToOpenApiParameter(route.query, 'query'));
+                }
 
-            const requestBody = zodSchemaToOpenApiRequestBody(route.body);
+                const requestBody = zodSchemaToOpenApiRequestBody(route.body);
 
-            const responses: any = {};
-            for (const statusCode in route.responses) {
-                const responseSchema = route.responses[parseInt(statusCode)];
-                if (responseSchema) {
-                    responses[statusCode] = {
-                        description: `Response for status code ${statusCode}`,
+                const responses: any = {};
+                for (const statusCode in route.responses) {
+                    const responseSchema = route.responses[parseInt(statusCode)];
+                    if (responseSchema) {
+                        responses[statusCode] = {
+                            description: `Response for status code ${statusCode}`,
+                            content: {
+                                'application/json': {
+                                    schema: registerSchema(`Response_${statusCode}_${routeNameKey}_${domainNameKey}`, responseSchema),
+                                },
+                            },
+                        };
+                    }
+                }
+
+                // Add 422 response if not already defined, as it's a default in createResponses
+                // Assuming route.responses[422] would exist if it's a standard part of the definition
+                if (!responses['422'] && route.responses && route.responses[422]) {
+                    responses['422'] = {
+                        description: 'Validation Error',
                         content: {
                             'application/json': {
-                                schema: registerSchema(`Response_${statusCode}_${routeNameKey}_${domainNameKey}`, responseSchema),
+                                schema: registerSchema(`Response_422_${routeNameKey}_${domainNameKey}`, route.responses[422]),
                             },
                         },
                     };
                 }
-            }
 
-            // Add 422 response if not already defined, as it's a default in createResponses
-            // Assuming route.responses[422] would exist if it's a standard part of the definition
-            if (!responses['422'] && route.responses && route.responses[422]) {
-                responses['422'] = {
-                    description: 'Validation Error',
-                    content: {
-                        'application/json': {
-                            schema: registerSchema(`Response_422_${routeNameKey}_${domainNameKey}`, route.responses[422]),
-                        },
-                    },
+                const operation = {
+                    summary: `${domainNameKey} - ${routeNameKey}`, // Use keys directly for summary
+                    tags: [domainNameKey], // Use domainNameKey for tags
+                    parameters: parameters.length > 0 ? parameters : undefined,
+                    requestBody: requestBody,
+                    responses: responses,
                 };
-            }
 
+                // Register the route with the registry
+                // The path needs to be transformed from Express-style (:param) to OpenAPI-style ({param})
+                const openApiPath = route.path.replace(/:(\w+)/g, '{$1}');
 
-            const operation = {
-                summary: `${domainNameKey} - ${routeNameKey}`, // Use keys directly for summary
-                tags: [domainNameKey], // Use domainNameKey for tags
-                parameters: parameters.length > 0 ? parameters : undefined,
-                requestBody: requestBody,
-                responses: responses,
-            };
-
-            // Register the route with the registry
-            // The path needs to be transformed from Express-style (:param) to OpenAPI-style ({param})
-            const openApiPath = route.path.replace(/:(\w+)/g, '{$1}');
-
-            registry.registerPath({
-                method: route.method.toLowerCase() as any, // Ensure method is lowercase
-                path: openApiPath,
-                ...operation,
-                // Add description or other OpenAPI fields if available in RouteSchema
+                registry.registerPath({
+                    method: route.method.toLowerCase() as any, // Ensure method is lowercase
+                    path: openApiPath,
+                    ...operation,
+                    // Add description or other OpenAPI fields if available in RouteSchema
+                });
             });
         });
     });
