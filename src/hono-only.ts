@@ -1,7 +1,7 @@
 // Hono-only exports - for Cloudflare Workers and other Hono environments
 // Excludes Express dependencies like multer, busboy, etc.
 export { CreateApiDefinition, CreateResponses } from './definition';
-export { ZodSchema } from 'zod';
+export { z as ZodSchema } from 'zod';
 
 // Hono adapter for Cloudflare Workers
 export { RegisterHonoHandlers } from './hono-cloudflare-workers';
