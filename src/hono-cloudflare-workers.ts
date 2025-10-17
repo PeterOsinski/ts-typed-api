@@ -1,4 +1,4 @@
-import { Hono, Context, MiddlewareHandler } from 'hono';
+import { Hono, Context, MiddlewareHandler, Env } from 'hono';
 import { z } from 'zod';
 import { ApiDefinitionSchema, RouteSchema, UnifiedError, FileUploadConfig } from './definition';
 import { TypedRequest, TypedResponse } from './router';
@@ -265,8 +265,13 @@ function createHonoFileUploadMiddleware(config: FileUploadConfig): MiddlewareHan
 }
 
 // Register route handlers with Hono, now generic over TDef
-export function registerHonoRouteHandlers<TDef extends ApiDefinitionSchema>(
-    app: Hono,
+export function registerHonoRouteHandlers<
+    TDef extends ApiDefinitionSchema,
+    TBindings extends Env = Env,
+    TVariables extends Record<string, never> = Record<string, never>,
+    TPath extends string = "/"
+>(
+    app: Hono<TBindings, TVariables, TPath>,
     apiDefinition: TDef,
     routeHandlers: Array<SpecificRouteHandler<TDef>>,
     middlewares?: EndpointMiddleware<TDef>[]
@@ -529,8 +534,13 @@ function transformObjectHandlersToArray<TDef extends ApiDefinitionSchema>(
 }
 
 // Main utility function that registers object-based handlers with Hono
-export function RegisterHonoHandlers<TDef extends ApiDefinitionSchema>(
-    app: Hono,
+export function RegisterHonoHandlers<
+    TDef extends ApiDefinitionSchema,
+    TBindings extends Env = Env,
+    TVariables extends Record<string, never> = Record<string, never>,
+    TPath extends string = "/"
+>(
+    app: Hono<TBindings, TVariables, TPath>,
     apiDefinition: TDef,
     objectHandlers: ObjectHandlers<TDef>,
     middlewares?: AnyMiddleware<TDef>[]

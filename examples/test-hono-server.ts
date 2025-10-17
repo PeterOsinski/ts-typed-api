@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import http from 'http';
-import { PublicApiDefinition as SimplePublicApiDefinition, PrivateApiDefinition as SimplePrivateApiDefinition } from './examples/simple/definitions';
-import { RegisterHonoHandlers } from './src';
+import { PublicApiDefinition as SimplePublicApiDefinition, PrivateApiDefinition as SimplePrivateApiDefinition } from './simple/definitions';
+import { RegisterHonoHandlers } from '../src';
 
 const HONO_PORT = 3004;
 
