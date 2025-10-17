@@ -1,25 +1,30 @@
 import { beforeAll, afterAll } from '@jest/globals';
 import express from 'express';
 import { Server } from 'http';
+import http from 'http';
+import { Hono } from 'hono';
 import { PublicApiDefinition as SimplePublicApiDefinition, PrivateApiDefinition as SimplePrivateApiDefinition } from '../examples/simple/definitions';
 import { PublicApiDefinition as AdvancedPublicApiDefinition, PrivateApiDefinition as AdvancedPrivateApiDefinition } from '../examples/advanced/definitions';
-import { RegisterHandlers, CreateApiDefinition, CreateResponses } from '../src';
+import { RegisterHandlers, RegisterHonoHandlers, CreateApiDefinition, CreateResponses } from '../src';
 import { z } from 'zod';
 
 // Global test server instances
 export let simpleServer: Server;
 export let advancedServer: Server;
 export let fileUploadServer: Server;
+export let honoServer: Server;
 
 export const SIMPLE_PORT = 3001;
 export const ADVANCED_PORT = 3002;
 export const FILE_UPLOAD_PORT = 3003;
+export const HONO_PORT = 3004;
 
 beforeAll(async () => {
     // Start test servers
     await startSimpleServer();
     await startAdvancedServer();
     await startFileUploadServer();
+    await startHonoServer();
 });
 
 afterAll(async () => {
@@ -32,6 +37,9 @@ afterAll(async () => {
     }
     if (fileUploadServer) {
         fileUploadServer.close();
+    }
+    if (honoServer) {
+        honoServer.close();
     }
 });
 
@@ -247,6 +255,87 @@ async function startFileUploadServer(): Promise<void> {
         });
 
         fileUploadServer = app.listen(FILE_UPLOAD_PORT, () => {
+            resolve();
+        });
+    });
+}
+
+async function startHonoServer(): Promise<void> {
+    return new Promise((resolve) => {
+        const app = new Hono();
+
+        // Register public handlers using Hono
+        RegisterHonoHandlers(app, SimplePublicApiDefinition, {
+            common: {
+                ping: async (req, res) => {
+                    res.respond(200, "pong");
+                }
+            },
+            status: {
+                probe1: async (req, res) => {
+                    if (req.query.match) {
+                        return res.respond(201, { status: true });
+                    }
+                    res.respond(200, "pong");
+                },
+                probe2: async (req, res) => {
+                    res.respond(200, "pong");
+                }
+            }
+        });
+
+        // Register private handlers using Hono
+        RegisterHonoHandlers(app, SimplePrivateApiDefinition, {
+            user: {
+                get: async (req, res) => {
+                    res.respond(200, "ok");
+                }
+            }
+        });
+
+        // Create HTTP server from Hono app
+        const server = app.fetch;
+
+        // Create a simple HTTP server wrapper for Hono
+        honoServer = http.createServer(async (req: any, res: any) => {
+            try {
+                // Read the request body for non-GET/HEAD methods
+                let body: ReadableStream | undefined;
+                if (req.method !== 'GET' && req.method !== 'HEAD') {
+                    const chunks: Buffer[] = [];
+                    for await (const chunk of req) {
+                        chunks.push(chunk);
+                    }
+                    const buffer = Buffer.concat(chunks);
+                    body = new ReadableStream({
+                        start(controller) {
+                            controller.enqueue(buffer);
+                            controller.close();
+                        }
+                    });
+                }
+
+                const response = await server(new Request(`http://localhost:${HONO_PORT}${req.url}`, {
+                    method: req.method,
+                    headers: req.headers,
+                    body: body
+                }));
+
+                res.statusCode = response.status;
+                for (const [key, value] of response.headers) {
+                    res.setHeader(key, value);
+                }
+
+                const responseBody = await response.text();
+                res.end(responseBody);
+            } catch (error) {
+                console.error('Hono server error:', error);
+                res.statusCode = 500;
+                res.end('Internal Server Error');
+            }
+        });
+
+        honoServer.listen(HONO_PORT, () => {
             resolve();
         });
     });

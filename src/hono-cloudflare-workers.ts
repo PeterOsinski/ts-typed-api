@@ -334,10 +334,11 @@ export function registerHonoRouteHandlers<TDef extends ApiDefinitionSchema>(
 
                     if (!responseSchema) {
                         console.error(`No response schema defined for status ${status} in route ${String(currentDomain)}/${String(currentRouteKey)}`);
-                        return c.json({
+                        (c as any).__response = c.json({
                             data: null,
                             error: [{ field: "general", type: "general", message: "Internal server error: Undefined response schema for status." }]
                         }, 500);
+                        return;
                     }
 
                     let responseBody: any;
@@ -348,6 +349,7 @@ export function registerHonoRouteHandlers<TDef extends ApiDefinitionSchema>(
                             error: data
                         };
                     } else {
+                        // Always use unified response format since CreateResponses wraps all schemas
                         responseBody = {
                             data: data,
                             error: null
@@ -357,13 +359,16 @@ export function registerHonoRouteHandlers<TDef extends ApiDefinitionSchema>(
                     const validationResult = responseSchema.safeParse(responseBody);
 
                     if (validationResult.success) {
-                        return c.json(validationResult.data, status as any);
+                        (c as any).__response = c.json(validationResult.data, status as any);
                     } else {
                         console.error(
                             `FATAL: Constructed response body failed Zod validation for status ${status} in route ${String(currentDomain)}/${String(currentRouteKey)}.`,
-                            validationResult.error.issues
+                            validationResult.error.issues,
+                            'Expected schema shape:', (responseSchema._def as any)?.shape,
+                            'Provided data:', data,
+                            'Constructed response body:', responseBody
                         );
-                        return c.json({
+                        (c as any).__response = c.json({
                             data: null,
                             error: [{ field: "general", type: "general", message: "Internal server error: Constructed response failed validation." }]
                         }, 500);
@@ -394,6 +399,17 @@ export function registerHonoRouteHandlers<TDef extends ApiDefinitionSchema>(
                 ) => Promise<void> | void;
 
                 await specificHandlerFn(fakeReq, fakeRes);
+
+                // Return the response created by the handler
+                if ((c as any).__response) {
+                    return (c as any).__response;
+                } else {
+                    console.error('No response was set by the handler');
+                    return c.json({
+                        data: null,
+                        error: [{ field: "general", type: "general", message: "Internal server error: No response set by handler." }]
+                    }, 500);
+                }
 
             } catch (error) {
                 if (error instanceof z.ZodError) {
