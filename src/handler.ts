@@ -281,6 +281,7 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                     params: parsedParams,
                     query: parsedQuery,
                     body: parsedBody,
+                    ctx: (expressReq as any).ctx,
                     headers: expressReq.headers,
                     cookies: expressReq.cookies,
                     ip: expressReq.ip,

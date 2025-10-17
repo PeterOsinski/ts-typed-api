@@ -19,11 +19,14 @@ export type TypedRequest<
     P extends ApiParams<TDef, TDomain, TRouteKey> = ApiParams<TDef, TDomain, TRouteKey>,
     ReqBody extends ApiBody<TDef, TDomain, TRouteKey> = ApiBody<TDef, TDomain, TRouteKey>,
     Q extends ApiQuery<TDef, TDomain, TRouteKey> = ApiQuery<TDef, TDomain, TRouteKey>,
-    L extends Record<string, any> = Record<string, any>
+    L extends Record<string, any> = Record<string, any>,
+    Ctx extends Record<string, any> = Record<string, any>
 > = express.Request<P, any, ReqBody, Q, L> & {
     // Add file upload support
     file?: File;
     files?: File[] | { [fieldname: string]: File[] };
+    // Add typed context object for carrying data between middlewares and handlers
+    ctx?: Ctx;
 }
 
 // --- Enhanced TypedResponse with res.respond, now generic over TDef ---
@@ -59,18 +62,19 @@ export interface TypedResponse<
     json: <B = any>(body: B) => this; // Keep original json
 }
 
-// Type-safe route handler creation function, now generic over TDef
+// Type-safe route handler creation function, now generic over TDef and Ctx
 // This function is called within a context where TDef is known (e.g. specific handlers file)
 export function createRouteHandler<
     TDef extends ApiDefinitionSchema,
     TDomain extends keyof TDef['endpoints'],
-    TRouteKey extends keyof TDef['endpoints'][TDomain] // Using direct keyof for simplicity
+    TRouteKey extends keyof TDef['endpoints'][TDomain], // Using direct keyof for simplicity
+    Ctx extends Record<string, any> = Record<string, any>
 >(
     domain: TDomain,
     routeKey: TRouteKey,
     handler: (
-        // Use the TDef generic for TypedRequest and TypedResponse
-        req: TypedRequest<TDef, TDomain, TRouteKey>,
+        // Use the TDef generic for TypedRequest and TypedResponse with Ctx
+        req: TypedRequest<TDef, TDomain, TRouteKey, any, any, any, any, Ctx>,
         res: TypedResponse<TDef, TDomain, TRouteKey>
     ) => Promise<void> | void
 ) {

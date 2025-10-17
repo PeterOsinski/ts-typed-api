@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import http from 'http';
 import { PublicApiDefinition as SimplePublicApiDefinition, PrivateApiDefinition as SimplePrivateApiDefinition } from './simple/definitions';
-import { RegisterHonoHandlers } from '../src';
+import { CreateTypedHonoHandlerWithContext, EndpointMiddleware, RegisterHonoHandlers } from '../src';
 
 const HONO_PORT = 3004;
 
@@ -12,8 +12,14 @@ async function startHonoServer() {
 
     console.log('Registering handlers...');
 
+    const loggingMiddleware: EndpointMiddleware = (req, res, next, endpointInfo) => {
+        console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - Endpoint: ${endpointInfo.domain}.${endpointInfo.routeKey}`);
+        next();
+    };
+
+    const registerWithContext = CreateTypedHonoHandlerWithContext<{ foo: string }>()
     // Register public handlers using Hono
-    RegisterHonoHandlers(app, SimplePublicApiDefinition, {
+    registerWithContext(app, SimplePublicApiDefinition, {
         common: {
             ping: async (req, res) => {
                 console.log('Handling ping request');
@@ -33,7 +39,7 @@ async function startHonoServer() {
                 res.respond(200, "pong");
             }
         }
-    });
+    }, [loggingMiddleware]);
 
     // Register private handlers using Hono
     RegisterHonoHandlers(app, SimplePrivateApiDefinition, {

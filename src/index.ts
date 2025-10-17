@@ -7,4 +7,4 @@ export { File as UploadedFile } from './router';
 export { z as ZodSchema } from 'zod';
 
 // Hono adapter for Cloudflare Workers
-export { RegisterHonoHandlers, registerHonoRouteHandlers, HonoFile, HonoFileType, honoFileSchema, HonoTypedContext } from './hono-cloudflare-workers';
+export { RegisterHonoHandlers, registerHonoRouteHandlers, HonoFile, HonoFileType, honoFileSchema, HonoTypedContext, CreateTypedHonoHandlerWithContext } from './hono-cloudflare-workers';

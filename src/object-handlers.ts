@@ -46,23 +46,30 @@ export type AnyMiddleware<TDef extends ApiDefinitionSchema = ApiDefinitionSchema
 type HandlerFunction<
     TDef extends ApiDefinitionSchema,
     TDomain extends keyof TDef['endpoints'],
-    TRouteKey extends keyof TDef['endpoints'][TDomain]
+    TRouteKey extends keyof TDef['endpoints'][TDomain],
+    Ctx extends Record<string, any> = Record<string, any>
 > = (
-    req: TypedRequest<TDef, TDomain, TRouteKey>,
+    req: TypedRequest<TDef, TDomain, TRouteKey, any, any, any, any, Ctx>,
     res: TypedResponse<TDef, TDomain, TRouteKey>
 ) => Promise<void> | void;
 
 // Type for the object-based handler definition
 // This ensures all domains and routes are required
-export type ObjectHandlers<TDef extends ApiDefinitionSchema> = {
-    [TDomain in keyof TDef['endpoints']]: {
-        [TRouteKey in keyof TDef['endpoints'][TDomain]]: HandlerFunction<TDef, TDomain, TRouteKey>;
+export type ObjectHandlers<
+    TDef extends ApiDefinitionSchema,
+    Ctx extends Record<string, any> = Record<string, any>
+> = {
+        [TDomain in keyof TDef['endpoints']]: {
+            [TRouteKey in keyof TDef['endpoints'][TDomain]]: HandlerFunction<TDef, TDomain, TRouteKey, Ctx>;
+        };
     };
-};
 
 // Transform object-based handlers to array format
-function transformObjectHandlersToArray<TDef extends ApiDefinitionSchema>(
-    objectHandlers: ObjectHandlers<TDef>
+function transformObjectHandlersToArray<
+    TDef extends ApiDefinitionSchema,
+    Ctx extends Record<string, any> = Record<string, any>
+>(
+    objectHandlers: ObjectHandlers<TDef, Ctx>
 ): Array<SpecificRouteHandler<TDef>> {
     const handlerArray: Array<SpecificRouteHandler<TDef>> = [];
 
@@ -91,10 +98,13 @@ function transformObjectHandlersToArray<TDef extends ApiDefinitionSchema>(
 }
 
 // Main utility function that registers object-based handlers
-export function RegisterHandlers<TDef extends ApiDefinitionSchema>(
+export function RegisterHandlers<
+    TDef extends ApiDefinitionSchema,
+    Ctx extends Record<string, any> = Record<string, any>
+>(
     app: express.Express,
     apiDefinition: TDef,
-    objectHandlers: ObjectHandlers<TDef>,
+    objectHandlers: ObjectHandlers<TDef, Ctx>,
     middlewares?: AnyMiddleware<TDef>[]
 ): void {
     const handlerArray = transformObjectHandlersToArray(objectHandlers);

@@ -29,7 +29,8 @@ export type HonoFileType = z.infer<typeof honoFileSchema>;
 export type HonoTypedContext<
     TDef extends ApiDefinitionSchema,
     TDomain extends keyof TDef['endpoints'],
-    TRouteKey extends keyof TDef['endpoints'][TDomain]
+    TRouteKey extends keyof TDef['endpoints'][TDomain],
+    Ctx extends Record<string, any> = Record<string, any>
 > = Context & {
     // Add typed request properties
     params: TypedRequest<TDef, TDomain, TRouteKey>['params'];
@@ -37,6 +38,8 @@ export type HonoTypedContext<
     body: TypedRequest<TDef, TDomain, TRouteKey>['body'];
     file?: HonoFile;
     files?: HonoFile[] | { [fieldname: string]: HonoFile[] };
+    // Add typed context object
+    ctx?: Ctx;
 
     // Add typed response method
     respond: TypedResponse<TDef, TDomain, TRouteKey>['respond'];
@@ -392,6 +395,7 @@ export function registerHonoRouteHandlers<
                     body: parsedBody,
                     file: (c as any).file,
                     files: (c as any).files,
+                    ctx: (c as any).ctx,
                     headers: c.req.header(),
                     ip: c.req.header('CF-Connecting-IP') || '127.0.0.1',
                     method: c.req.method,
@@ -507,8 +511,11 @@ export function registerHonoRouteHandlers<
 }
 
 // Transform object-based handlers to array format
-function transformObjectHandlersToArray<TDef extends ApiDefinitionSchema>(
-    objectHandlers: ObjectHandlers<TDef>
+function transformObjectHandlersToArray<
+    TDef extends ApiDefinitionSchema,
+    Ctx extends Record<string, any> = Record<string, any>
+>(
+    objectHandlers: ObjectHandlers<TDef, Ctx>
 ): Array<SpecificRouteHandler<TDef>> {
     const handlerArray: Array<SpecificRouteHandler<TDef>> = [];
 
@@ -536,13 +543,14 @@ function transformObjectHandlersToArray<TDef extends ApiDefinitionSchema>(
 // Main utility function that registers object-based handlers with Hono
 export function RegisterHonoHandlers<
     TDef extends ApiDefinitionSchema,
+    Ctx extends Record<string, any> = Record<string, any>,
     TBindings extends Env = Env,
     TVariables extends Record<string, never> = Record<string, never>,
     TPath extends string = "/"
 >(
     app: Hono<TBindings, TVariables, TPath>,
     apiDefinition: TDef,
-    objectHandlers: ObjectHandlers<TDef>,
+    objectHandlers: ObjectHandlers<TDef, Ctx>,
     middlewares?: AnyMiddleware<TDef>[]
 ): void {
     const handlerArray = transformObjectHandlersToArray(objectHandlers);
@@ -559,4 +567,15 @@ export function RegisterHonoHandlers<
     }) || [];
 
     registerHonoRouteHandlers(app, apiDefinition, handlerArray, endpointMiddlewares);
+}
+
+export function CreateTypedHonoHandlerWithContext<Ctx extends Record<string, any>>() {
+    return function <TDef extends ApiDefinitionSchema>(
+        app: Hono,
+        apiDefinition: TDef,
+        objectHandlers: ObjectHandlers<TDef, Ctx>,
+        middlewares?: AnyMiddleware<TDef>[]
+    ) {
+        return RegisterHonoHandlers(app, apiDefinition, objectHandlers, middlewares);
+    };
 }
