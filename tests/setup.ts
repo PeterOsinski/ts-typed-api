@@ -217,6 +217,48 @@ export const HONO_PORT = 3004;
 export const ADVANCED_HONO_PORT = 3005;
 export const FILE_UPLOAD_HONO_PORT = 3006;
 
+// Helper function to create HTTP server wrapper for Hono apps
+function createHonoHttpServer(server: any, port: number, errorPrefix: string): Server {
+    return http.createServer(async (req: any, res: any) => {
+        try {
+            // Read the request body for non-GET/HEAD methods
+            let body: ReadableStream | undefined;
+            if (req.method !== 'GET' && req.method !== 'HEAD') {
+                const chunks: Buffer[] = [];
+                for await (const chunk of req) {
+                    chunks.push(chunk);
+                }
+                const buffer = Buffer.concat(chunks);
+                body = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(buffer);
+                        controller.close();
+                    }
+                });
+            }
+
+            const response = await server(new Request(`http://localhost:${port}${req.url}`, {
+                method: req.method,
+                headers: req.headers,
+                body: body,
+                duplex: body ? 'half' : undefined
+            } as any));
+
+            res.statusCode = response.status;
+            for (const [key, value] of response.headers) {
+                res.setHeader(key, value);
+            }
+
+            const responseBody = await response.text();
+            res.end(responseBody);
+        } catch (error) {
+            console.error(`${errorPrefix} error:`, error);
+            res.statusCode = 500;
+            res.end('Internal Server Error');
+        }
+    });
+}
+
 beforeAll(async () => {
     // Start test servers
     await startSimpleServer();
@@ -297,44 +339,7 @@ async function startAdvancedHonoServer(): Promise<void> {
         const server = app.fetch;
 
         // Create a simple HTTP server wrapper for Hono
-        advancedHonoServer = http.createServer(async (req: any, res: any) => {
-            try {
-                // Read the request body for non-GET/HEAD methods
-                let body: ReadableStream | undefined;
-                if (req.method !== 'GET' && req.method !== 'HEAD') {
-                    const chunks: Buffer[] = [];
-                    for await (const chunk of req) {
-                        chunks.push(chunk);
-                    }
-                    const buffer = Buffer.concat(chunks);
-                    body = new ReadableStream({
-                        start(controller) {
-                            controller.enqueue(buffer);
-                            controller.close();
-                        }
-                    });
-                }
-
-                const response = await server(new Request(`http://localhost:${ADVANCED_HONO_PORT}${req.url}`, {
-                    method: req.method,
-                    headers: req.headers,
-                    body: body,
-                    duplex: body ? 'half' : undefined
-                } as any));
-
-                res.statusCode = response.status;
-                for (const [key, value] of response.headers) {
-                    res.setHeader(key, value);
-                }
-
-                const responseBody = await response.text();
-                res.end(responseBody);
-            } catch (error) {
-                console.error('Advanced Hono server error:', error);
-                res.statusCode = 500;
-                res.end('Internal Server Error');
-            }
-        });
+        advancedHonoServer = createHonoHttpServer(server, ADVANCED_HONO_PORT, 'Advanced Hono server');
 
         advancedHonoServer.listen(ADVANCED_HONO_PORT, () => {
             resolve();
@@ -365,44 +370,7 @@ async function startFileUploadHonoServer(): Promise<void> {
         const server = app.fetch;
 
         // Create a simple HTTP server wrapper for Hono
-        fileUploadHonoServer = http.createServer(async (req: any, res: any) => {
-            try {
-                // Read the request body for non-GET/HEAD methods
-                let body: ReadableStream | undefined;
-                if (req.method !== 'GET' && req.method !== 'HEAD') {
-                    const chunks: Buffer[] = [];
-                    for await (const chunk of req) {
-                        chunks.push(chunk);
-                    }
-                    const buffer = Buffer.concat(chunks);
-                    body = new ReadableStream({
-                        start(controller) {
-                            controller.enqueue(buffer);
-                            controller.close();
-                        }
-                    });
-                }
-
-                const response = await server(new Request(`http://localhost:${FILE_UPLOAD_HONO_PORT}${req.url}`, {
-                    method: req.method,
-                    headers: req.headers,
-                    body: body,
-                    duplex: body ? 'half' : undefined
-                } as any));
-
-                res.statusCode = response.status;
-                for (const [key, value] of response.headers) {
-                    res.setHeader(key, value);
-                }
-
-                const responseBody = await response.text();
-                res.end(responseBody);
-            } catch (error) {
-                console.error('File Upload Hono server error:', error);
-                res.statusCode = 500;
-                res.end('Internal Server Error');
-            }
-        });
+        fileUploadHonoServer = createHonoHttpServer(server, FILE_UPLOAD_HONO_PORT, 'File Upload Hono server');
 
         fileUploadHonoServer.listen(FILE_UPLOAD_HONO_PORT, () => {
             resolve();
@@ -424,43 +392,7 @@ async function startHonoServer(): Promise<void> {
         const server = app.fetch;
 
         // Create a simple HTTP server wrapper for Hono
-        honoServer = http.createServer(async (req: any, res: any) => {
-            try {
-                // Read the request body for non-GET/HEAD methods
-                let body: ReadableStream | undefined;
-                if (req.method !== 'GET' && req.method !== 'HEAD') {
-                    const chunks: Buffer[] = [];
-                    for await (const chunk of req) {
-                        chunks.push(chunk);
-                    }
-                    const buffer = Buffer.concat(chunks);
-                    body = new ReadableStream({
-                        start(controller) {
-                            controller.enqueue(buffer);
-                            controller.close();
-                        }
-                    });
-                }
-
-                const response = await server(new Request(`http://localhost:${HONO_PORT}${req.url}`, {
-                    method: req.method,
-                    headers: req.headers,
-                    body: body
-                }));
-
-                res.statusCode = response.status;
-                for (const [key, value] of response.headers) {
-                    res.setHeader(key, value);
-                }
-
-                const responseBody = await response.text();
-                res.end(responseBody);
-            } catch (error) {
-                console.error('Hono server error:', error);
-                res.statusCode = 500;
-                res.end('Internal Server Error');
-            }
-        });
+        honoServer = createHonoHttpServer(server, HONO_PORT, 'Hono server');
 
         honoServer.listen(HONO_PORT, () => {
             resolve();
