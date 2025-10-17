@@ -1,6 +1,6 @@
 {
   "name": "ts-typed-api",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "description": "A lightweight, type-safe RPC library for TypeScript with Zod validation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,6 +16,10 @@
     "./server": {
       "types": "./dist/server-only.d.ts",
       "default": "./dist/server-only.js"
+    },
+    "./hono": {
+      "types": "./dist/hono-only.d.ts",
+      "default": "./dist/hono-only.js"
     }
   },
   "scripts": {
