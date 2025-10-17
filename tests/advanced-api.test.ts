@@ -1,13 +1,17 @@
-import { describe, test, expect } from '@jest/globals';
+import { describe, test, expect, beforeEach } from '@jest/globals';
 import { ApiClient } from '../src';
 import { PublicApiDefinition, PrivateApiDefinition } from '../examples/advanced/definitions';
-import { ADVANCED_PORT, HONO_PORT } from './setup';
+import { ADVANCED_PORT, ADVANCED_HONO_PORT, resetMockData } from './setup';
 
 describe.each([
     ['Express', ADVANCED_PORT],
-    // ['Hono', HONO_PORT]
+    ['Hono', ADVANCED_HONO_PORT]
 ])('Advanced API Tests - %s', (serverName, port) => {
     const baseUrl = `http://localhost:${port}`;
+
+    beforeEach(() => {
+        resetMockData();
+    });
 
     describe('Public API - Authentication', () => {
         const client = new ApiClient(baseUrl, PublicApiDefinition);
