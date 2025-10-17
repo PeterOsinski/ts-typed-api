@@ -2,6 +2,7 @@
 // Excludes Express dependencies like multer, busboy, etc.
 export { CreateApiDefinition, CreateResponses } from './definition';
 export { z as ZodSchema } from 'zod';
+export { EndpointMiddleware } from './object-handlers'
 
 // Hono adapter for Cloudflare Workers
 export { RegisterHonoHandlers } from './hono-cloudflare-workers';
