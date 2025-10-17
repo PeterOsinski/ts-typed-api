@@ -8,6 +8,34 @@ import { PublicApiDefinition as AdvancedPublicApiDefinition, PrivateApiDefinitio
 import { RegisterHandlers, RegisterHonoHandlers, CreateApiDefinition, CreateResponses } from '../src';
 import { z } from 'zod';
 
+// Shared handler definitions for simple API
+const simplePublicHandlers = {
+    common: {
+        ping: async (req: any, res: any) => {
+            res.respond(200, "pong");
+        }
+    },
+    status: {
+        probe1: async (req: any, res: any) => {
+            if (req.query.match) {
+                return res.respond(201, { status: true });
+            }
+            res.respond(200, "pong");
+        },
+        probe2: async (req: any, res: any) => {
+            res.respond(200, "pong");
+        }
+    }
+};
+
+const simplePrivateHandlers = {
+    user: {
+        get: async (req: any, res: any) => {
+            res.respond(200, "ok");
+        }
+    }
+};
+
 // Global test server instances
 export let simpleServer: Server;
 export let advancedServer: Server;
@@ -49,33 +77,10 @@ async function startSimpleServer(): Promise<void> {
         app.use(express.json());
 
         // Register public handlers
-        RegisterHandlers(app, SimplePublicApiDefinition, {
-            common: {
-                ping: async (req: any, res: any) => {
-                    res.respond(200, "pong");
-                }
-            },
-            status: {
-                probe1: async (req: any, res: any) => {
-                    if (req.query.match) {
-                        return res.respond(201, { status: true });
-                    }
-                    res.respond(200, "pong");
-                },
-                probe2: async (req: any, res: any) => {
-                    res.respond(200, "pong");
-                }
-            }
-        });
+        RegisterHandlers(app, SimplePublicApiDefinition, simplePublicHandlers);
 
         // Register private handlers
-        RegisterHandlers(app, SimplePrivateApiDefinition, {
-            user: {
-                get: async (req: any, res: any) => {
-                    res.respond(200, "ok");
-                }
-            }
-        });
+        RegisterHandlers(app, SimplePrivateApiDefinition, simplePrivateHandlers);
 
         simpleServer = app.listen(SIMPLE_PORT, () => {
             resolve();
@@ -265,33 +270,10 @@ async function startHonoServer(): Promise<void> {
         const app = new Hono();
 
         // Register public handlers using Hono
-        RegisterHonoHandlers(app, SimplePublicApiDefinition, {
-            common: {
-                ping: async (req, res) => {
-                    res.respond(200, "pong");
-                }
-            },
-            status: {
-                probe1: async (req, res) => {
-                    if (req.query.match) {
-                        return res.respond(201, { status: true });
-                    }
-                    res.respond(200, "pong");
-                },
-                probe2: async (req, res) => {
-                    res.respond(200, "pong");
-                }
-            }
-        });
+        RegisterHonoHandlers(app, SimplePublicApiDefinition, simplePublicHandlers);
 
         // Register private handlers using Hono
-        RegisterHonoHandlers(app, SimplePrivateApiDefinition, {
-            user: {
-                get: async (req, res) => {
-                    res.respond(200, "ok");
-                }
-            }
-        });
+        RegisterHonoHandlers(app, SimplePrivateApiDefinition, simplePrivateHandlers);
 
         // Create HTTP server from Hono app
         const server = app.fetch;

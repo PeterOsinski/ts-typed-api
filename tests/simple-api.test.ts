@@ -2,10 +2,13 @@ import { describe, test, expect } from '@jest/globals';
 import fetch from 'node-fetch';
 import { ApiClient } from '../src';
 import { PublicApiDefinition, PrivateApiDefinition } from '../examples/simple/definitions';
-import { SIMPLE_PORT } from './setup';
+import { SIMPLE_PORT, HONO_PORT } from './setup';
 
-describe('Simple API Tests', () => {
-    const baseUrl = `http://localhost:${SIMPLE_PORT}`;
+describe.each([
+    ['Express', SIMPLE_PORT],
+    ['Hono', HONO_PORT]
+])('Simple API Tests - %s', (serverName, port) => {
+    const baseUrl = `http://localhost:${port}`;
 
     describe('Public API', () => {
         const client = new ApiClient(baseUrl, PublicApiDefinition);
@@ -111,4 +114,31 @@ describe('Simple API Tests', () => {
             expect(keys).toEqual(['data']);
         });
     });
+
+    if (serverName === 'Hono') {
+        describe('Hono vs Express Compatibility', () => {
+            test('should produce identical responses to Express version', async () => {
+                // Test that Hono produces the same responses as Express
+                const response = await fetch(`${baseUrl}/api/v1/public/ping`);
+                const expressResponse = await fetch(`http://localhost:${SIMPLE_PORT}/api/v1/public/ping`);
+
+                const honoData = await response.json();
+                const expressData = await expressResponse.json();
+
+                expect(honoData).toEqual(expressData);
+                expect(response.status).toBe(expressResponse.status);
+            });
+
+            test('should handle query parameters identically', async () => {
+                const honoResponse = await fetch(`${baseUrl}/api/v1/public/status/probe1?match=true`);
+                const expressResponse = await fetch(`http://localhost:${SIMPLE_PORT}/api/v1/public/status/probe1?match=true`);
+
+                const honoData = await honoResponse.json();
+                const expressData = await expressResponse.json();
+
+                expect(honoData).toEqual(expressData);
+                expect(honoResponse.status).toBe(expressResponse.status);
+            });
+        });
+    }
 });
