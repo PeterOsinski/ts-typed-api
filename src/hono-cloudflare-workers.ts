@@ -359,7 +359,12 @@ export function registerHonoRouteHandlers<TDef extends ApiDefinitionSchema>(
                     const validationResult = responseSchema.safeParse(responseBody);
 
                     if (validationResult.success) {
-                        (c as any).__response = c.json(validationResult.data, status as any);
+                        // Handle 204 responses specially - they must not have a body
+                        if (status === 204) {
+                            (c as any).__response = new Response(null, { status: status as any });
+                        } else {
+                            (c as any).__response = c.json(validationResult.data, status as any);
+                        }
                     } else {
                         console.error(
                             `FATAL: Constructed response body failed Zod validation for status ${status} in route ${String(currentDomain)}/${String(currentRouteKey)}.`,
