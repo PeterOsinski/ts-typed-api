@@ -336,6 +336,9 @@ export function registerHonoRouteHandlers<
                 (c as any).query = parsedQuery;
                 (c as any).body = parsedBody;
 
+                // Get context from Hono's context system
+                (c as any).ctx = c.get('ctx') || {};
+
                 // Add respond method to context
                 (c as any).respond = (status: number, data: any) => {
                     const responseSchema = routeDefinition.responses[status];
@@ -484,10 +487,25 @@ export function registerHonoRouteHandlers<
             middlewares.forEach(middleware => {
                 const wrappedMiddleware: MiddlewareHandler = async (c: any, next: any) => {
                     try {
-                        await middleware(c.req as any, c.res as any, next, { domain: currentDomain, routeKey: currentRouteKey } as any);
+                        // Create Express-like req object for middleware compatibility
+                        const fakeReq = {
+                            headers: c.req.header(),
+                            get ctx() { return c.get('ctx') || {}; },
+                            set ctx(value) { c.set('ctx', value); },
+                            method: c.req.method,
+                            path: c.req.path,
+                            originalUrl: c.req.url
+                        };
+
+                        // Create minimal res object (middleware shouldn't use it)
+                        const fakeRes = {};
+
+                        // Call Express-style middleware
+                        await middleware(fakeReq as any, fakeRes as any, next, { domain: currentDomain, routeKey: currentRouteKey });
+
                     } catch (error) {
                         console.error('Middleware error:', error);
-                        return next();
+                        await next();
                     }
                 };
                 middlewareWrappers.push(wrappedMiddleware);

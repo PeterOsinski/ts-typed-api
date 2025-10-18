@@ -18,7 +18,7 @@ const loggingMiddlewareTyped: EndpointMiddleware<typeof PrivateApiDefinition> = 
 };
 
 // Universal auth middleware that doesn't use endpointInfo
-const authMiddleware = async (req, res, next) => {
+const authMiddleware: EndpointMiddleware = async (req, res, next) => {
     // Example auth logic
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

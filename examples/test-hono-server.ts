@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import http from 'http';
 import { PublicApiDefinition as SimplePublicApiDefinition, PrivateApiDefinition as SimplePrivateApiDefinition } from './simple/definitions';
-import { CreateTypedHonoHandlerWithContext, EndpointMiddleware, RegisterHonoHandlers } from '../src';
+import { CreateTypedHonoHandlerWithContext, RegisterHonoHandlers } from '../src';
+import { EndpointMiddlewareCtx } from '../src/object-handlers';
 
 const HONO_PORT = 3004;
 
@@ -12,17 +13,18 @@ async function startHonoServer() {
 
     console.log('Registering handlers...');
 
-    const loggingMiddleware: EndpointMiddleware = (req, res, next, endpointInfo) => {
+    type Ctx = { foo: string, blah: () => string }
+
+    const loggingMiddleware: EndpointMiddlewareCtx<Ctx> = (req, res, next, endpointInfo) => {
         console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - Endpoint: ${endpointInfo.domain}.${endpointInfo.routeKey}`);
         next();
     };
 
-    const registerWithContext = CreateTypedHonoHandlerWithContext<{ foo: string }>()
+    const registerWithContext = CreateTypedHonoHandlerWithContext<Ctx>()
     // Register public handlers using Hono
     registerWithContext(app, SimplePublicApiDefinition, {
         common: {
             ping: async (req, res) => {
-                console.log('Handling ping request');
                 res.respond(200, "pong");
             }
         },
@@ -58,19 +60,15 @@ async function startHonoServer() {
 
     // Create a simple HTTP server wrapper for Hono
     const honoServer = http.createServer(async (req: any, res: any) => {
-        console.log(`Incoming request: ${req.method} ${req.url}`);
-
         try {
             // Read the request body for non-GET/HEAD methods
             let body: ReadableStream | undefined;
             if (req.method !== 'GET' && req.method !== 'HEAD') {
-                console.log('Reading request body...');
                 const chunks: Buffer[] = [];
                 for await (const chunk of req) {
                     chunks.push(chunk);
                 }
                 const buffer = Buffer.concat(chunks);
-                console.log('Request body length:', buffer.length);
                 body = new ReadableStream({
                     start(controller) {
                         controller.enqueue(buffer);
@@ -79,18 +77,12 @@ async function startHonoServer() {
                 });
             }
 
-            console.log('Creating Web API Request...');
-            const request = new Request(`http://localhost:${HONO_PORT}${req.url}`, {
+            const response = await server(new Request(`http://localhost:${HONO_PORT}${req.url}`, {
                 method: req.method,
                 headers: req.headers,
-                body: body
-            });
-
-            console.log('Calling Hono app.fetch...');
-            const response = await server(request);
-
-            console.log('Response status:', response.status);
-            console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                body: body,
+                duplex: body ? 'half' : undefined
+            } as any));
 
             res.statusCode = response.status;
             for (const [key, value] of response.headers) {
@@ -98,10 +90,8 @@ async function startHonoServer() {
             }
 
             const responseBody = await response.text();
-            console.log('Response body:', responseBody);
             res.end(responseBody);
         } catch (error) {
-            console.error('Hono server error:', error);
             res.statusCode = 500;
             res.end('Internal Server Error');
         }
@@ -121,10 +111,7 @@ async function startHonoServer() {
     // Graceful shutdown
     process.on('SIGINT', () => {
         console.log('Shutting down server...');
-        honoServer.close(() => {
-            console.log('Server closed');
-            process.exit(0);
-        });
+        process.exit(0);
     });
 }
 

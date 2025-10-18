@@ -36,6 +36,16 @@ export type UniversalEndpointMiddleware = (
     }
 ) => void | Promise<void>;
 
+// Unified middleware type that works for both Express and Hono with context typing
+export type EndpointMiddlewareCtx<
+    Ctx extends Record<string, any> = Record<string, any>,
+    TDef extends ApiDefinitionSchema = ApiDefinitionSchema
+> =
+    // Express version: (req, res, next, endpointInfo)
+    ((req: express.Request & { ctx?: Ctx }, res: express.Response, next: express.NextFunction, endpointInfo: EndpointInfo<TDef>) => void | Promise<void>) |
+    // Hono version: (c, next) - context is passed via c.req.ctx -> c.ctx copying
+    ((c: any, next: any) => void | Promise<void>);
+
 // Union type that accepts endpoint-aware, universal, and simple middleware
 export type AnyMiddleware<TDef extends ApiDefinitionSchema = ApiDefinitionSchema> =
     | EndpointMiddleware<TDef>

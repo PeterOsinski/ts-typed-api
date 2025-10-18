@@ -5,8 +5,9 @@ import http from 'http';
 import { Hono } from 'hono';
 import { PublicApiDefinition as SimplePublicApiDefinition, PrivateApiDefinition as SimplePrivateApiDefinition } from '../examples/simple/definitions';
 import { PublicApiDefinition as AdvancedPublicApiDefinition, PrivateApiDefinition as AdvancedPrivateApiDefinition } from '../examples/advanced/definitions';
-import { RegisterHandlers, RegisterHonoHandlers, CreateApiDefinition, CreateResponses } from '../src';
+import { RegisterHandlers, RegisterHonoHandlers, CreateApiDefinition, CreateResponses, CreateTypedHonoHandlerWithContext } from '../src';
 import { z } from 'zod';
+import { EndpointMiddlewareCtx } from '../src/object-handlers';
 
 // Shared handler definitions for simple API
 const simplePublicHandlers = {
@@ -202,6 +203,36 @@ const fileUploadHandlers = {
     }
 };
 
+export const MiddlewareTestApiDefinition = CreateApiDefinition({
+    prefix: '/api/v1',
+    endpoints: {
+        public: {
+            ping: {
+                method: 'GET' as const,
+                path: '/ping',
+                responses: CreateResponses({
+                    200: z.object({ message: z.string() })
+                })
+            },
+            protected: {
+                method: 'GET' as const,
+                path: '/protected',
+                responses: CreateResponses({
+                    200: z.object({ message: z.string(), user: z.string() }),
+                    401: z.object({ error: z.string() })
+                })
+            },
+            context: {
+                method: 'GET' as const,
+                path: '/context',
+                responses: CreateResponses({
+                    200: z.object({ message: z.string(), contextData: z.string() })
+                })
+            }
+        }
+    }
+});
+
 // Global test server instances
 export let simpleServer: Server;
 export let advancedServer: Server;
@@ -209,6 +240,8 @@ export let fileUploadServer: Server;
 export let honoServer: Server;
 export let advancedHonoServer: Server;
 export let fileUploadHonoServer: Server;
+export let middlewareExpressServer: Server;
+export let middlewareHonoServer: Server;
 
 export const SIMPLE_PORT = 3001;
 export const ADVANCED_PORT = 3002;
@@ -216,6 +249,8 @@ export const FILE_UPLOAD_PORT = 3003;
 export const HONO_PORT = 3004;
 export const ADVANCED_HONO_PORT = 3005;
 export const FILE_UPLOAD_HONO_PORT = 3006;
+export const MIDDLEWARE_EXPRESS_PORT = 3007;
+export const MIDDLEWARE_HONO_PORT = 3008;
 
 // Helper function to create HTTP server wrapper for Hono apps
 function createHonoHttpServer(server: any, port: number, errorPrefix: string): Server {
@@ -267,6 +302,8 @@ beforeAll(async () => {
     await startHonoServer();
     await startAdvancedHonoServer();
     await startFileUploadHonoServer();
+    await startMiddlewareExpressServer();
+    await startMiddlewareHonoServer();
 });
 
 afterAll(async () => {
@@ -288,6 +325,12 @@ afterAll(async () => {
     }
     if (fileUploadHonoServer) {
         fileUploadHonoServer.close();
+    }
+    if (middlewareExpressServer) {
+        middlewareExpressServer.close();
+    }
+    if (middlewareHonoServer) {
+        middlewareHonoServer.close();
     }
 });
 
@@ -395,6 +438,135 @@ async function startHonoServer(): Promise<void> {
         honoServer = createHonoHttpServer(server, HONO_PORT, 'Hono server');
 
         honoServer.listen(HONO_PORT, () => {
+            resolve();
+        });
+    });
+}
+
+type Ctx = { user: string }
+
+// Middleware test servers
+async function startMiddlewareExpressServer(): Promise<void> {
+    return new Promise((resolve) => {
+        const app = express();
+        app.use(express.json());
+
+        // Define middleware functions
+        const loggingMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction, endpointInfo: any) => {
+            console.log(`[Test] ${req.method} ${req.path} - Domain: ${endpointInfo.domain}, Route: ${endpointInfo.routeKey}`);
+            next();
+        };
+
+        const contextMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+            (req as any).ctx = { middlewareData: "middleware-added-data" };
+            next();
+        };
+
+        const authMiddleware: EndpointMiddlewareCtx<Ctx> = (req, res, next) => {
+            const authHeader = req.headers.authorization;
+            if (authHeader === 'Bearer valid-token') {
+                req.ctx = { user: 'testuser' };
+            }
+            next();
+        };
+
+        // Register handlers with middleware
+        RegisterHandlers(app, MiddlewareTestApiDefinition, {
+            public: {
+                ping: async (req: any, res: any) => {
+                    res.respond(200, { message: "pong" });
+                },
+                protected: async (req, res) => {
+                    // Check if user is authenticated via context
+                    if (req.ctx && req.ctx.user) {
+                        res.respond(200, {
+                            message: "protected content",
+                            user: req.ctx.user
+                        });
+                    } else {
+                        res.respond(401, { error: "No authorization header" });
+                    }
+                },
+                context: async (req: any, res: any) => {
+                    res.respond(200, {
+                        message: "context test",
+                        contextData: req.ctx?.middlewareData || "default"
+                    });
+                }
+            }
+        }, [
+            loggingMiddleware,
+            contextMiddleware,
+            authMiddleware
+        ]);
+
+        middlewareExpressServer = app.listen(MIDDLEWARE_EXPRESS_PORT, () => {
+            resolve();
+        });
+    });
+}
+
+async function startMiddlewareHonoServer(): Promise<void> {
+    return new Promise((resolve) => {
+        const app = new Hono();
+
+        // Define middleware functions
+        const loggingMiddleware = async (req: any, res: any, next: any, endpointInfo: any) => {
+            console.log(`[Test Hono] ${req.method} ${req.path} - Domain: ${endpointInfo.domain}, Route: ${endpointInfo.routeKey}`);
+            await next();
+        };
+
+        const contextMiddleware = async (req: any, res: any, next: any) => {
+            req.ctx = { ...req.ctx, middlewareData: "middleware-added-data" };
+            await next();
+        };
+
+        const authMiddleware: EndpointMiddlewareCtx<Ctx> = async (req, res, next) => {
+            const authHeader = req.headers?.authorization;
+            if (authHeader === 'Bearer valid-token') {
+                req.ctx = { ...req.ctx, user: 'testuser' };
+            }
+            await next();
+        };
+
+        const hdnl = CreateTypedHonoHandlerWithContext<Ctx>()
+        // Register handlers with middleware
+        hdnl(app, MiddlewareTestApiDefinition, {
+            public: {
+                ping: async (req: any, res: any) => {
+                    res.respond(200, { message: "pong" });
+                },
+                protected: async (req, res) => {
+                    // Check if user is authenticated via context
+                    if (req.ctx && req.ctx.user) {
+                        res.respond(200, {
+                            message: "protected content",
+                            user: req.ctx.user
+                        });
+                    } else {
+                        res.respond(401, { error: "No authorization header" });
+                    }
+                },
+                context: async (req: any, res: any) => {
+                    res.respond(200, {
+                        message: "context test",
+                        contextData: req.ctx?.middlewareData || "default"
+                    });
+                }
+            }
+        }, [
+            loggingMiddleware,
+            contextMiddleware,
+            authMiddleware
+        ]);
+
+        // Create HTTP server from Hono app
+        const server = app.fetch;
+
+        // Create a simple HTTP server wrapper for Hono
+        middlewareHonoServer = createHonoHttpServer(server, MIDDLEWARE_HONO_PORT, 'Middleware Hono server');
+
+        middlewareHonoServer.listen(MIDDLEWARE_HONO_PORT, () => {
             resolve();
         });
     });
