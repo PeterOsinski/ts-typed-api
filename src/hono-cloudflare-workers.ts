@@ -588,8 +588,13 @@ export function RegisterHonoHandlers<
 }
 
 export function CreateTypedHonoHandlerWithContext<Ctx extends Record<string, any>>() {
-    return function <TDef extends ApiDefinitionSchema>(
-        app: Hono,
+    return function <
+        TDef extends ApiDefinitionSchema,
+        TBindings extends Env = Env,
+        TVariables extends Record<string, never> = Record<string, never>,
+        TPath extends string = "/"
+    >(
+        app: Hono<TBindings, TVariables, TPath>,
         apiDefinition: TDef,
         objectHandlers: ObjectHandlers<TDef, Ctx>,
         middlewares?: AnyMiddleware<TDef>[]
