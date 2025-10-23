@@ -140,10 +140,11 @@ export function RegisterHandlers<
 export function createTypedHandler<
     TDef extends ApiDefinitionSchema,
     TDomain extends keyof TDef['endpoints'],
-    TRouteKey extends keyof TDef['endpoints'][TDomain]
+    TRouteKey extends keyof TDef['endpoints'][TDomain],
+    Ctx extends Record<string, any> = Record<string, any>
 >(
     handler: (
-        req: TypedRequest<TDef, TDomain, TRouteKey>,
+        req: TypedRequest<TDef, TDomain, TRouteKey, any, any, any, any, Ctx>,
         res: TypedResponse<TDef, TDomain, TRouteKey>
     ) => Promise<void> | void
 ) {

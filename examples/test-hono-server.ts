@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import http from 'http';
 import { PublicApiDefinition as SimplePublicApiDefinition, PrivateApiDefinition as SimplePrivateApiDefinition } from './simple/definitions';
 import { CreateTypedHonoHandlerWithContext, RegisterHonoHandlers } from '../src';
-import { EndpointMiddlewareCtx } from '../src/object-handlers';
+import { createTypedHandler, EndpointMiddlewareCtx } from '../src/object-handlers';
 
 const HONO_PORT = 3004;
 
@@ -16,6 +16,7 @@ async function startHonoServer() {
     type Ctx = { foo: string, blah: () => string }
 
     const loggingMiddleware: EndpointMiddlewareCtx<Ctx> = (req, res, next, endpointInfo) => {
+        req.ctx = { foo: 'foo', blah: () => { return '' } }
         console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - Endpoint: ${endpointInfo.domain}.${endpointInfo.routeKey}`);
         next();
     };
@@ -29,13 +30,13 @@ async function startHonoServer() {
             }
         },
         status: {
-            probe1: async (req, res) => {
-                console.log('Handling probe1 request, query:', req.query);
+            probe1: createTypedHandler(async (req, res) => {
+                console.log('Handling probe1 request, query:', req.query, req.ctx!.foo);
                 if (req.query.match) {
                     return res.respond(201, { status: true });
                 }
                 res.respond(200, "pong");
-            },
+            }),
             probe2: async (req, res) => {
                 console.log('Handling probe2 request');
                 res.respond(200, "pong");

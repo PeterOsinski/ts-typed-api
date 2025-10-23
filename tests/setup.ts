@@ -299,10 +299,11 @@ beforeAll(async () => {
     await startSimpleServer();
     await startAdvancedServer();
     await startFileUploadServer();
+    await startMiddlewareExpressServer();
+
     await startHonoServer();
     await startAdvancedHonoServer();
     await startFileUploadHonoServer();
-    await startMiddlewareExpressServer();
     await startMiddlewareHonoServer();
 });
 
