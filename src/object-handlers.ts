@@ -136,6 +136,20 @@ export function RegisterHandlers<
     registerRouteHandlers(app, apiDefinition, handlerArray, endpointMiddlewares);
 }
 
+// Helper function to create typed handlers with proper type inference
+export function createTypedHandler<
+    TDef extends ApiDefinitionSchema,
+    TDomain extends keyof TDef['endpoints'],
+    TRouteKey extends keyof TDef['endpoints'][TDomain]
+>(
+    handler: (
+        req: TypedRequest<TDef, TDomain, TRouteKey>,
+        res: TypedResponse<TDef, TDomain, TRouteKey>
+    ) => Promise<void> | void
+) {
+    return handler;
+}
+
 // Factory function to create a typed handler registrar for a specific API definition
 export function makeObjectHandlerRegistrar<TDef extends ApiDefinitionSchema>(
     apiDefinition: TDef

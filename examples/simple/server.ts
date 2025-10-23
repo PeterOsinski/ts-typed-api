@@ -1,6 +1,6 @@
 import express from 'express';
 import { PrivateApiDefinition, PublicApiDefinition } from './definitions';
-import { RegisterHandlers, EndpointMiddleware } from '../../src';
+import { RegisterHandlers, EndpointMiddleware, createTypedHandler } from '../../src';
 const app = express();
 const port = 3001;
 app.set('etag', false);
@@ -59,10 +59,10 @@ RegisterHandlers(app, PublicApiDefinition, {
 // Add another api definition
 RegisterHandlers(app, PrivateApiDefinition, {
     user: {
-        get: async (req, res) => {
+        get: createTypedHandler(async (req, res) => {
             console.log('Fetching user', req.params.id);
             res.respond(200, "ok");
-        }
+        })
     }
 }, [loggingMiddlewareTyped, authMiddleware]);
 

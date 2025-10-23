@@ -282,8 +282,8 @@ export function registerHonoRouteHandlers<
     routeHandlers.forEach((specificHandlerIterationItem) => {
         const { domain, routeKey, handler } = specificHandlerIterationItem as any;
 
-        const currentDomain = domain as string;
-        const currentRouteKey = routeKey as string;
+        const currentDomain = domain;
+        const currentRouteKey = routeKey;
 
         const routeDefinition = apiDefinition.endpoints[currentDomain][currentRouteKey] as RouteSchema;
 
@@ -575,7 +575,7 @@ export function RegisterHonoHandlers<
 
     // Convert AnyMiddleware to EndpointMiddleware by checking function arity
     const endpointMiddlewares: EndpointMiddleware<TDef>[] = middlewares?.map(middleware => {
-        if (middleware.length === 4) {
+        if (middleware && middleware.length === 4) {
             return middleware as EndpointMiddleware<TDef>;
         } else {
             return ((req, res, next) => {
@@ -586,6 +586,8 @@ export function RegisterHonoHandlers<
 
     registerHonoRouteHandlers(app, apiDefinition, handlerArray, endpointMiddlewares);
 }
+
+
 
 export function CreateTypedHonoHandlerWithContext<Ctx extends Record<string, any>>() {
     return function <
