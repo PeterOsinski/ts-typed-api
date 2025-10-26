@@ -1,6 +1,6 @@
 // Hono-only exports - for Cloudflare Workers and other Hono environments
 // Excludes Express dependencies like multer, busboy, etc.
-import type { ApiDefinitionSchema } from './definition';
+import type { ApiBody, ApiDefinitionSchema, ApiParams, ApiQuery } from './definition';
 import type { TypedRequest, TypedResponse } from './router';
 
 export { CreateApiDefinition, CreateResponses } from './definition';
@@ -16,12 +16,13 @@ export function createTypedHandler<
     Ctx extends Record<string, any> = Record<string, any>
 >(
     handler: (
-        req: TypedRequest<TDef, TDomain, TRouteKey, any, any, any, any, Ctx>,
+        req: TypedRequest<TDef, TDomain, TRouteKey, ApiParams<TDef, TDomain, TRouteKey>, ApiBody<TDef, TDomain, TRouteKey>, ApiQuery<TDef, TDomain, TRouteKey>, Record<string, any>, Ctx>,
         res: TypedResponse<TDef, TDomain, TRouteKey>
     ) => Promise<void> | void
 ) {
     return handler;
 }
+
 
 // Hono adapter for Cloudflare Workers
 export { RegisterHonoHandlers, CreateTypedHonoHandlerWithContext } from './hono-cloudflare-workers';

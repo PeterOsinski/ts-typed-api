@@ -74,7 +74,7 @@ export function createRouteHandler<
     routeKey: TRouteKey,
     handler: (
         // Use the TDef generic for TypedRequest and TypedResponse with Ctx
-        req: TypedRequest<TDef, TDomain, TRouteKey, any, any, any, any, Ctx>,
+        req: TypedRequest<TDef, TDomain, TRouteKey, ApiParams<TDef, TDomain, TRouteKey>, ApiBody<TDef, TDomain, TRouteKey>, ApiQuery<TDef, TDomain, TRouteKey>, Record<string, any>, Ctx>,
         res: TypedResponse<TDef, TDomain, TRouteKey>
     ) => Promise<void> | void
 ) {

@@ -1,5 +1,5 @@
 import express from "express";
-import { ApiDefinitionSchema } from "./definition";
+import { ApiDefinitionSchema, ApiParams, ApiBody, ApiQuery } from "./definition";
 import { registerRouteHandlers, SpecificRouteHandler } from "./handler";
 import { TypedRequest, TypedResponse } from "./router";
 
@@ -59,7 +59,7 @@ type HandlerFunction<
     TRouteKey extends keyof TDef['endpoints'][TDomain],
     Ctx extends Record<string, any> = Record<string, any>
 > = (
-    req: TypedRequest<TDef, TDomain, TRouteKey, any, any, any, any, Ctx>,
+    req: TypedRequest<TDef, TDomain, TRouteKey, ApiParams<TDef, TDomain, TRouteKey>, ApiBody<TDef, TDomain, TRouteKey>, ApiQuery<TDef, TDomain, TRouteKey>, Record<string, any>, Ctx>,
     res: TypedResponse<TDef, TDomain, TRouteKey>
 ) => Promise<void> | void;
 
@@ -144,7 +144,7 @@ export function createTypedHandler<
     Ctx extends Record<string, any> = Record<string, any>
 >(
     handler: (
-        req: TypedRequest<TDef, TDomain, TRouteKey, any, any, any, any, Ctx>,
+        req: TypedRequest<TDef, TDomain, TRouteKey, ApiParams<TDef, TDomain, TRouteKey>, ApiBody<TDef, TDomain, TRouteKey>, ApiQuery<TDef, TDomain, TRouteKey>, Record<string, any>, Ctx>,
         res: TypedResponse<TDef, TDomain, TRouteKey>
     ) => Promise<void> | void
 ) {
