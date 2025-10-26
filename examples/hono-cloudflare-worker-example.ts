@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { RegisterHonoHandlers, createTypedHandler } from '../src';
+import { RegisterHonoHandlers } from '../src';
 import { PublicApiDefinition, PrivateApiDefinition } from './simple/definitions';
 
 // Create Hono app for Cloudflare Workers
@@ -45,10 +45,10 @@ RegisterHonoHandlers(app, PublicApiDefinition, {
 // Register private handlers with auth
 RegisterHonoHandlers(app, PrivateApiDefinition, {
     user: {
-        get: createTypedHandler(async (req, res) => {
+        get: async (req, res) => {
             console.log('Fetching user', req.params.id);
             res.respond(200, "ok");
-        })
+        }
     }
 }, [loggingMiddleware, authMiddleware]);
 

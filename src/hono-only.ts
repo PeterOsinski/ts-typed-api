@@ -1,27 +1,8 @@
 // Hono-only exports - for Cloudflare Workers and other Hono environments
 // Excludes Express dependencies like multer, busboy, etc.
-import type { ApiBody, ApiDefinitionSchema, ApiParams, ApiQuery } from './definition';
-import type { TypedRequest, TypedResponse } from './router';
-
 export { CreateApiDefinition, CreateResponses } from './definition';
 export { z as ZodSchema } from 'zod';
 export { EndpointMiddleware, EndpointMiddlewareCtx } from './object-handlers'
-
-// Helper function to create typed handlers with proper type inference
-// Defined locally to avoid Express dependencies in Hono-only bundle
-export function createTypedHandler<
-    TDef extends ApiDefinitionSchema,
-    TDomain extends keyof TDef['endpoints'],
-    TRouteKey extends keyof TDef['endpoints'][TDomain],
-    Ctx extends Record<string, any> = Record<string, any>
->(
-    handler: (
-        req: TypedRequest<TDef, TDomain, TRouteKey, ApiParams<TDef, TDomain, TRouteKey>, ApiBody<TDef, TDomain, TRouteKey>, ApiQuery<TDef, TDomain, TRouteKey>, Record<string, any>, Ctx>,
-        res: TypedResponse<TDef, TDomain, TRouteKey>
-    ) => Promise<void> | void
-) {
-    return handler;
-}
 
 
 // Hono adapter for Cloudflare Workers
