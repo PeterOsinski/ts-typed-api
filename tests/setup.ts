@@ -471,74 +471,45 @@ const middlewareTestHandlers = {
 // Generic middleware setup function
 function setupMiddlewareApp(app: any, isHono: boolean) {
     // Define middleware functions
-    const loggingMiddleware = isHono ?
-        async (req: any, res: any, next: any, endpointInfo: any) => {
-            console.log(`[Test Hono] ${req.method} ${req.path} - Domain: ${endpointInfo.domain}, Route: ${endpointInfo.routeKey}`);
-            await next();
-        } :
-        (req: express.Request, res: express.Response, next: express.NextFunction, endpointInfo: any) => {
-            console.log(`[Test] ${req.method} ${req.path} - Domain: ${endpointInfo.domain}, Route: ${endpointInfo.routeKey}`);
-            next();
-        };
+    const loggingMiddleware = async (req: any, res: any, next: any, endpointInfo: any) => {
+        console.log(`[Test] ${req.method} ${req.path} - Domain: ${endpointInfo.domain}, Route: ${endpointInfo.routeKey}`);
+        await next();
+    }
 
-    const contextMiddleware = isHono ?
-        async (req: any, res: any, next: any) => {
-            req.ctx = { ...req.ctx, middlewareData: "middleware-added-data" };
-            await next();
-        } :
-        (req: express.Request, res: express.Response, next: express.NextFunction) => {
-            (req as any).ctx = { middlewareData: "middleware-added-data" };
-            next();
-        };
+    const contextMiddleware = async (req: any, res: any, next: any) => {
+        req.ctx = { ...req.ctx, middlewareData: "middleware-added-data" };
+        await next();
+    }
 
-    const authMiddleware = isHono ?
-        async (req: any, res: any, next: any, endpointInfo: any) => {
-            // Only apply auth checks to protected routes
-            if (endpointInfo.domain === 'public' && endpointInfo.routeKey === 'protected') {
-                const authHeader = req.headers?.authorization;
-                if (!authHeader) {
-                    (res as any).respond(401, { error: "No authorization header" });
-                } else if (authHeader === 'Bearer valid-token') {
-                    req.ctx = { ...req.ctx, user: 'testuser' };
-                    await next();
-                } else {
-                    (res as any).respond(403, { error: "Forbidden" });
-                }
-            } else {
+    const authMiddleware = async (req: any, res: any, next: any, endpointInfo: any) => {
+        // Only apply auth checks to protected routes
+        if (endpointInfo.domain === 'public' && endpointInfo.routeKey === 'protected') {
+            const authHeader = req.headers?.authorization;
+            if (!authHeader) {
+                (res as any).respond(401, { error: "No authorization header" });
+            } else if (authHeader === 'Bearer valid-token') {
+                req.ctx = { ...req.ctx, user: 'testuser' };
                 await next();
-            }
-        } :
-        (req: any, res: any, next: any, endpointInfo: any) => {
-            // Only apply auth checks to protected routes
-            if (endpointInfo.domain === 'public' && endpointInfo.routeKey === 'protected') {
-                const authHeader = req.headers?.authorization;
-                if (!authHeader) {
-                    (res as any).respond(401, { error: "No authorization header" });
-                } else if (authHeader === 'Bearer valid-token') {
-                    req.ctx = { ...req.ctx, user: 'testuser' };
-                    next();
-                } else {
-                    (res as any).respond(403, { error: "Forbidden" });
-                }
             } else {
-                next();
+                (res as any).respond(403, { error: "Forbidden" });
             }
-        };
+        } else {
+            await next();
+        }
+    }
+
+    const middlewares = [
+        loggingMiddleware,
+        contextMiddleware,
+        authMiddleware
+    ]
 
     // Register handlers with middleware
     if (isHono) {
         const hndl = CreateTypedHonoHandlerWithContext<Ctx>();
-        hndl(app, MiddlewareTestApiDefinition, middlewareTestHandlers, [
-            loggingMiddleware,
-            contextMiddleware,
-            authMiddleware
-        ]);
+        hndl(app, MiddlewareTestApiDefinition, middlewareTestHandlers, middlewares);
     } else {
-        RegisterHandlers(app, MiddlewareTestApiDefinition, middlewareTestHandlers, [
-            loggingMiddleware,
-            contextMiddleware,
-            authMiddleware
-        ]);
+        RegisterHandlers(app, MiddlewareTestApiDefinition, middlewareTestHandlers, middlewares);
     }
 }
 
