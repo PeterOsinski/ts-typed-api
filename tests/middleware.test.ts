@@ -58,6 +58,9 @@ describe.each([
                 401: ({ data }) => {
                     throw new Error(`Authentication failed: ${data.error}`);
                 },
+                403: ({ data }) => {
+                    throw new Error(`Forbidden: ${data.error}`);
+                },
                 422: ({ error }) => {
                     throw new Error(`Validation error: ${JSON.stringify(error)}`);
                 }
@@ -74,11 +77,32 @@ describe.each([
                         expect(data.error).toBe('No authorization header');
                         throw new Error('Authentication failed as expected');
                     },
+                    403: ({ data }) => {
+                        throw new Error(`Unexpected forbidden: ${data.error}`);
+                    },
                     422: ({ error }) => {
                         throw new Error(`Validation error: ${JSON.stringify(error)}`);
                     }
                 })
             ).rejects.toThrow('Authentication failed as expected');
+        });
+
+        test('should deny access with invalid auth header', async () => {
+            await expect(
+                client.callApi('public', 'protected', { headers: { Authorization: 'Bearer invalid-token' } }, {
+                    200: ({ data }) => data,
+                    401: ({ data }) => {
+                        throw new Error(`Unexpected auth failed: ${data.error}`);
+                    },
+                    403: ({ data }) => {
+                        expect(data.error).toBe('Forbidden');
+                        throw new Error('Forbidden as expected');
+                    },
+                    422: ({ error }) => {
+                        throw new Error(`Validation error: ${JSON.stringify(error)}`);
+                    }
+                })
+            ).rejects.toThrow('Forbidden as expected');
         });
     });
 });

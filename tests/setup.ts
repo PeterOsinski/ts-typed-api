@@ -219,7 +219,8 @@ export const MiddlewareTestApiDefinition = CreateApiDefinition({
                 path: '/protected',
                 responses: CreateResponses({
                     200: z.object({ message: z.string(), user: z.string() }),
-                    401: z.object({ error: z.string() })
+                    401: z.object({ error: z.string() }),
+                    403: z.object({ error: z.string() })
                 })
             },
             context: {
@@ -444,7 +445,7 @@ async function startHonoServer(): Promise<void> {
     });
 }
 
-type Ctx = { user: string }
+type Ctx = { user?: string; noAuth?: boolean; forbidden?: boolean }
 
 // Middleware test servers
 async function startMiddlewareExpressServer(): Promise<void> {
@@ -463,12 +464,21 @@ async function startMiddlewareExpressServer(): Promise<void> {
             next();
         };
 
-        const authMiddleware: EndpointMiddlewareCtx<Ctx> = (req, res, next) => {
-            const authHeader = req.headers.authorization;
-            if (authHeader === 'Bearer valid-token') {
-                req.ctx = { user: 'testuser' };
+        const authMiddleware: EndpointMiddlewareCtx<Ctx> = (req, res, next, endpointInfo) => {
+            // Only apply auth checks to protected routes
+            if (endpointInfo.domain === 'public' && endpointInfo.routeKey === 'protected') {
+                const authHeader = req.headers.authorization;
+                if (!authHeader) {
+                    (res as any).respond(401, { error: "No authorization header" });
+                } else if (authHeader === 'Bearer valid-token') {
+                    req.ctx = { ...req.ctx, user: 'testuser' };
+                    next();
+                } else {
+                    (res as any).respond(403, { error: "Forbidden" });
+                }
+            } else {
+                next();
             }
-            next();
         };
 
         // Register handlers with middleware
@@ -478,15 +488,11 @@ async function startMiddlewareExpressServer(): Promise<void> {
                     res.respond(200, { message: "pong" });
                 },
                 protected: async (req, res) => {
-                    // Check if user is authenticated via context
-                    if (req.ctx && req.ctx.user) {
-                        res.respond(200, {
-                            message: "protected content",
-                            user: req.ctx.user
-                        });
-                    } else {
-                        res.respond(401, { error: "No authorization header" });
-                    }
+                    // Middleware has already validated auth, so we only handle success case
+                    res.respond(200, {
+                        message: "protected content",
+                        user: req.ctx?.user || "unknown"
+                    });
                 },
                 context: async (req: any, res: any) => {
                     res.respond(200, {
@@ -522,12 +528,21 @@ async function startMiddlewareHonoServer(): Promise<void> {
             await next();
         };
 
-        const authMiddleware: EndpointMiddlewareCtx<Ctx> = async (req, res, next) => {
-            const authHeader = req.headers?.authorization;
-            if (authHeader === 'Bearer valid-token') {
-                req.ctx = { ...req.ctx, user: 'testuser' };
+        const authMiddleware: EndpointMiddlewareCtx<Ctx> = async (req, res, next, endpointInfo) => {
+            // Only apply auth checks to protected routes
+            if (endpointInfo.domain === 'public' && endpointInfo.routeKey === 'protected') {
+                const authHeader = req.headers?.authorization;
+                if (!authHeader) {
+                    (res as any).respond(401, { error: "No authorization header" });
+                } else if (authHeader === 'Bearer valid-token') {
+                    req.ctx = { ...req.ctx, user: 'testuser' };
+                    await next();
+                } else {
+                    (res as any).respond(403, { error: "Forbidden" });
+                }
+            } else {
+                await next();
             }
-            await next();
         };
 
         const hdnl = CreateTypedHonoHandlerWithContext<Ctx>()
@@ -538,15 +553,11 @@ async function startMiddlewareHonoServer(): Promise<void> {
                     res.respond(200, { message: "pong" });
                 },
                 protected: async (req, res) => {
-                    // Check if user is authenticated via context
-                    if (req.ctx && req.ctx.user) {
-                        res.respond(200, {
-                            message: "protected content",
-                            user: req.ctx.user
-                        });
-                    } else {
-                        res.respond(401, { error: "No authorization header" });
-                    }
+                    // Middleware has already validated auth, so we only handle success case
+                    res.respond(200, {
+                        message: "protected content",
+                        user: req.ctx?.user || "unknown"
+                    });
                 },
                 context: async (req: any, res: any) => {
                     res.respond(200, {

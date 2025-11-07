@@ -497,11 +497,65 @@ export function registerHonoRouteHandlers<
                             originalUrl: c.req.url
                         };
 
-                        // Create minimal res object (middleware shouldn't use it)
-                        const fakeRes = {};
+                        // Create minimal res object with respond method for middleware compatibility
+                        const fakeRes = {
+                            respond: (status: number, data: any) => {
+                                const responseSchema = routeDefinition.responses[status];
+
+                                if (!responseSchema) {
+                                    console.error(`No response schema defined for status ${status}`);
+                                    c.json({
+                                        data: null,
+                                        error: [{ field: "general", type: "general", message: "Internal server error: Undefined response schema for status." }]
+                                    }, 500);
+                                    return;
+                                }
+
+                                let responseBody: any;
+
+                                if (status === 422) {
+                                    responseBody = {
+                                        data: null,
+                                        error: data
+                                    };
+                                } else {
+                                    responseBody = {
+                                        data: data,
+                                        error: null
+                                    };
+                                }
+
+                                const validationResult = responseSchema.safeParse(responseBody);
+
+                                if (validationResult.success) {
+                                    // Handle 204 responses specially - they must not have a body
+                                    if (status === 204) {
+                                        (c as any).__response = new Response(null, { status: status as any });
+                                    } else {
+                                        (c as any).__response = c.json(validationResult.data, status as any);
+                                    }
+                                } else {
+                                    console.error(
+                                        `FATAL: Constructed response body failed Zod validation for status ${status}.`,
+                                        validationResult.error.issues,
+                                        'Provided data:', data,
+                                        'Constructed response body:', responseBody
+                                    );
+                                    (c as any).__response = c.json({
+                                        data: null,
+                                        error: [{ field: "general", type: "general", message: "Internal server error: Constructed response failed validation." }]
+                                    }, 500);
+                                }
+                            }
+                        };
 
                         // Call Express-style middleware
                         await middleware(fakeReq as any, fakeRes as any, next, { domain: currentDomain, routeKey: currentRouteKey });
+
+                        // Check if middleware responded directly
+                        if ((c as any).__response) {
+                            return (c as any).__response;
+                        }
 
                     } catch (error) {
                         console.error('Middleware error:', error);

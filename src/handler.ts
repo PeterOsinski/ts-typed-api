@@ -79,6 +79,61 @@ function preprocessQueryParams(query: any, querySchema?: z.ZodTypeAny): any {
     return processedQuery;
 }
 
+// Helper function to create respond method for middleware compatibility
+function createRespondFunction(
+    routeDefinition: RouteSchema,
+    responseSetter: (status: number, data: any) => void
+) {
+    return (status: number, data: any) => {
+        const responseSchema = routeDefinition.responses[status];
+
+        if (!responseSchema) {
+            console.error(`No response schema defined for status ${status}`);
+            responseSetter(500, {
+                data: null,
+                error: [{ field: "general", type: "general", message: "Internal server error: Undefined response schema for status." }]
+            });
+            return;
+        }
+
+        let responseBody: any;
+
+        if (status === 422) {
+            responseBody = {
+                data: null,
+                error: data
+            };
+        } else {
+            responseBody = {
+                data: data,
+                error: null
+            };
+        }
+
+        const validationResult = responseSchema.safeParse(responseBody);
+
+        if (validationResult.success) {
+            // Handle 204 responses specially - they must not have a body
+            if (status === 204) {
+                responseSetter(status, null);
+            } else {
+                responseSetter(status, validationResult.data);
+            }
+        } else {
+            console.error(
+                `FATAL: Constructed response body failed Zod validation for status ${status}.`,
+                validationResult.error.issues,
+                'Provided data:', data,
+                'Constructed response body:', responseBody
+            );
+            responseSetter(500, {
+                data: null,
+                error: [{ field: "general", type: "general", message: "Internal server error: Constructed response failed validation." }]
+            });
+        }
+    };
+}
+
 // Helper function to create multer middleware based on file upload configuration
 function createFileUploadMiddleware(config: FileUploadConfig): express.RequestHandler {
     // Default multer configuration
@@ -418,6 +473,10 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
             middlewares.forEach(middleware => {
                 const wrappedMiddleware: express.RequestHandler = async (req, res, next) => {
                     try {
+                        // Add respond method to res for middleware compatibility
+                        (res as any).respond = createRespondFunction(routeDefinition, (status, data) => {
+                            res.status(status).json(data);
+                        });
                         await middleware(req, res, next, { domain: currentDomain, routeKey: currentRouteKey } as any);
                     } catch (error) {
                         next(error);
