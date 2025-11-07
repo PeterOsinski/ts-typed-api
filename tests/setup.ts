@@ -7,7 +7,6 @@ import { PublicApiDefinition as SimplePublicApiDefinition, PrivateApiDefinition 
 import { PublicApiDefinition as AdvancedPublicApiDefinition, PrivateApiDefinition as AdvancedPrivateApiDefinition } from '../examples/advanced/definitions';
 import { RegisterHandlers, RegisterHonoHandlers, CreateApiDefinition, CreateResponses, CreateTypedHonoHandlerWithContext } from '../src';
 import { z } from 'zod';
-import { EndpointMiddlewareCtx } from '../src/object-handlers';
 
 // Shared handler definitions for simple API
 const simplePublicHandlers = {
@@ -447,88 +446,53 @@ async function startHonoServer(): Promise<void> {
 
 type Ctx = { user?: string; noAuth?: boolean; forbidden?: boolean }
 
-// Middleware test servers
-async function startMiddlewareExpressServer(): Promise<void> {
-    return new Promise((resolve) => {
-        const app = express();
-        app.use(express.json());
+// Shared handlers for middleware tests
+const middlewareTestHandlers = {
+    public: {
+        ping: async (req: any, res: any) => {
+            res.respond(200, { message: "pong" });
+        },
+        protected: async (req: any, res: any) => {
+            // Middleware has already validated auth, so we only handle success case
+            res.respond(200, {
+                message: "protected content",
+                user: req.ctx?.user || "unknown"
+            });
+        },
+        context: async (req: any, res: any) => {
+            res.respond(200, {
+                message: "context test",
+                contextData: req.ctx?.middlewareData || "default"
+            });
+        }
+    }
+};
 
-        // Define middleware functions
-        const loggingMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction, endpointInfo: any) => {
+// Generic middleware setup function
+function setupMiddlewareApp(app: any, isHono: boolean) {
+    // Define middleware functions
+    const loggingMiddleware = isHono ?
+        async (req: any, res: any, next: any, endpointInfo: any) => {
+            console.log(`[Test Hono] ${req.method} ${req.path} - Domain: ${endpointInfo.domain}, Route: ${endpointInfo.routeKey}`);
+            await next();
+        } :
+        (req: express.Request, res: express.Response, next: express.NextFunction, endpointInfo: any) => {
             console.log(`[Test] ${req.method} ${req.path} - Domain: ${endpointInfo.domain}, Route: ${endpointInfo.routeKey}`);
             next();
         };
 
-        const contextMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const contextMiddleware = isHono ?
+        async (req: any, res: any, next: any) => {
+            req.ctx = { ...req.ctx, middlewareData: "middleware-added-data" };
+            await next();
+        } :
+        (req: express.Request, res: express.Response, next: express.NextFunction) => {
             (req as any).ctx = { middlewareData: "middleware-added-data" };
             next();
         };
 
-        const authMiddleware: EndpointMiddlewareCtx<Ctx> = (req, res, next, endpointInfo) => {
-            // Only apply auth checks to protected routes
-            if (endpointInfo.domain === 'public' && endpointInfo.routeKey === 'protected') {
-                const authHeader = req.headers.authorization;
-                if (!authHeader) {
-                    (res as any).respond(401, { error: "No authorization header" });
-                } else if (authHeader === 'Bearer valid-token') {
-                    req.ctx = { ...req.ctx, user: 'testuser' };
-                    next();
-                } else {
-                    (res as any).respond(403, { error: "Forbidden" });
-                }
-            } else {
-                next();
-            }
-        };
-
-        // Register handlers with middleware
-        RegisterHandlers(app, MiddlewareTestApiDefinition, {
-            public: {
-                ping: async (req: any, res: any) => {
-                    res.respond(200, { message: "pong" });
-                },
-                protected: async (req, res) => {
-                    // Middleware has already validated auth, so we only handle success case
-                    res.respond(200, {
-                        message: "protected content",
-                        user: req.ctx?.user || "unknown"
-                    });
-                },
-                context: async (req: any, res: any) => {
-                    res.respond(200, {
-                        message: "context test",
-                        contextData: req.ctx?.middlewareData || "default"
-                    });
-                }
-            }
-        }, [
-            loggingMiddleware,
-            contextMiddleware,
-            authMiddleware
-        ]);
-
-        middlewareExpressServer = app.listen(MIDDLEWARE_EXPRESS_PORT, () => {
-            resolve();
-        });
-    });
-}
-
-async function startMiddlewareHonoServer(): Promise<void> {
-    return new Promise((resolve) => {
-        const app = new Hono();
-
-        // Define middleware functions
-        const loggingMiddleware = async (req: any, res: any, next: any, endpointInfo: any) => {
-            console.log(`[Test Hono] ${req.method} ${req.path} - Domain: ${endpointInfo.domain}, Route: ${endpointInfo.routeKey}`);
-            await next();
-        };
-
-        const contextMiddleware = async (req: any, res: any, next: any) => {
-            req.ctx = { ...req.ctx, middlewareData: "middleware-added-data" };
-            await next();
-        };
-
-        const authMiddleware: EndpointMiddlewareCtx<Ctx> = async (req, res, next, endpointInfo) => {
+    const authMiddleware = isHono ?
+        async (req: any, res: any, next: any, endpointInfo: any) => {
             // Only apply auth checks to protected routes
             if (endpointInfo.domain === 'public' && endpointInfo.routeKey === 'protected') {
                 const authHeader = req.headers?.authorization;
@@ -543,34 +507,60 @@ async function startMiddlewareHonoServer(): Promise<void> {
             } else {
                 await next();
             }
+        } :
+        (req: any, res: any, next: any, endpointInfo: any) => {
+            // Only apply auth checks to protected routes
+            if (endpointInfo.domain === 'public' && endpointInfo.routeKey === 'protected') {
+                const authHeader = req.headers?.authorization;
+                if (!authHeader) {
+                    (res as any).respond(401, { error: "No authorization header" });
+                } else if (authHeader === 'Bearer valid-token') {
+                    req.ctx = { ...req.ctx, user: 'testuser' };
+                    next();
+                } else {
+                    (res as any).respond(403, { error: "Forbidden" });
+                }
+            } else {
+                next();
+            }
         };
 
-        const hdnl = CreateTypedHonoHandlerWithContext<Ctx>()
-        // Register handlers with middleware
-        hdnl(app, MiddlewareTestApiDefinition, {
-            public: {
-                ping: async (req: any, res: any) => {
-                    res.respond(200, { message: "pong" });
-                },
-                protected: async (req, res) => {
-                    // Middleware has already validated auth, so we only handle success case
-                    res.respond(200, {
-                        message: "protected content",
-                        user: req.ctx?.user || "unknown"
-                    });
-                },
-                context: async (req: any, res: any) => {
-                    res.respond(200, {
-                        message: "context test",
-                        contextData: req.ctx?.middlewareData || "default"
-                    });
-                }
-            }
-        }, [
+    // Register handlers with middleware
+    if (isHono) {
+        const hndl = CreateTypedHonoHandlerWithContext<Ctx>();
+        hndl(app, MiddlewareTestApiDefinition, middlewareTestHandlers, [
             loggingMiddleware,
             contextMiddleware,
             authMiddleware
         ]);
+    } else {
+        RegisterHandlers(app, MiddlewareTestApiDefinition, middlewareTestHandlers, [
+            loggingMiddleware,
+            contextMiddleware,
+            authMiddleware
+        ]);
+    }
+}
+
+// Middleware test servers
+async function startMiddlewareExpressServer(): Promise<void> {
+    return new Promise((resolve) => {
+        const app = express();
+        app.use(express.json());
+
+        setupMiddlewareApp(app, false);
+
+        middlewareExpressServer = app.listen(MIDDLEWARE_EXPRESS_PORT, () => {
+            resolve();
+        });
+    });
+}
+
+async function startMiddlewareHonoServer(): Promise<void> {
+    return new Promise((resolve) => {
+        const app = new Hono();
+
+        setupMiddlewareApp(app, true);
 
         // Create HTTP server from Hono app
         const server = app.fetch;
