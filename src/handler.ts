@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ApiDefinitionSchema, RouteSchema, UnifiedError, FileUploadConfig } from "./definition";
 import { createRouteHandler, TypedRequest, TypedResponse } from "./router";
+import { MiddlewareResponse } from "./object-handlers";
 import express from "express";
 import multer from "multer";
 
@@ -16,7 +17,7 @@ export type SpecificRouteHandler<TDef extends ApiDefinitionSchema> = {
 // Type for middleware function that receives endpoint information with type safety
 export type EndpointMiddleware<TDef extends ApiDefinitionSchema = ApiDefinitionSchema> = (
     req: express.Request,
-    res: express.Response,
+    res: MiddlewareResponse,
     next: express.NextFunction,
     endpointInfo: {
         [TDomain in keyof TDef['endpoints']]: {
@@ -474,10 +475,11 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                 const wrappedMiddleware: express.RequestHandler = async (req, res, next) => {
                     try {
                         // Add respond method to res for middleware compatibility
-                        (res as any).respond = createRespondFunction(routeDefinition, (status, data) => {
+                        const middlewareRes = res as any;
+                        middlewareRes.respond = createRespondFunction(routeDefinition, (status, data) => {
                             res.status(status).json(data);
                         });
-                        await middleware(req, res, next, { domain: currentDomain, routeKey: currentRouteKey } as any);
+                        await middleware(req, middlewareRes as MiddlewareResponse, next, { domain: currentDomain, routeKey: currentRouteKey } as any);
                     } catch (error) {
                         next(error);
                     }

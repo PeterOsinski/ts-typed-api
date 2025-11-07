@@ -13,7 +13,7 @@ export type EndpointInfo<TDef extends ApiDefinitionSchema = ApiDefinitionSchema>
 // Type for middleware function that receives endpoint information
 export type EndpointMiddleware<TDef extends ApiDefinitionSchema = ApiDefinitionSchema> = (
     req: express.Request,
-    res: express.Response,
+    res: MiddlewareResponse,
     next: express.NextFunction,
     endpointInfo: EndpointInfo<TDef>
 ) => void | Promise<void>;
@@ -21,14 +21,14 @@ export type EndpointMiddleware<TDef extends ApiDefinitionSchema = ApiDefinitionS
 // Type for simple middleware that doesn't need endpoint information
 export type SimpleMiddleware = (
     req: express.Request,
-    res: express.Response,
+    res: MiddlewareResponse,
     next: express.NextFunction
 ) => void | Promise<void>;
 
 // Type for middleware that can work with any API definition
 export type UniversalEndpointMiddleware = (
     req: express.Request,
-    res: express.Response,
+    res: MiddlewareResponse,
     next: express.NextFunction,
     endpointInfo: {
         domain: string;
@@ -36,13 +36,22 @@ export type UniversalEndpointMiddleware = (
     }
 ) => void | Promise<void>;
 
+// Custom response interface for framework-agnostic middleware
+export interface MiddlewareResponse {
+    respond(status: number, data: any): void;
+    status(code: number): this;
+    json(data: any): void;
+    setHeader(name: string, value: string): void;
+    end(): void;
+}
+
 // Unified middleware type that works for both Express and Hono with context typing
 export type EndpointMiddlewareCtx<
     Ctx extends Record<string, any> = Record<string, any>,
     TDef extends ApiDefinitionSchema = ApiDefinitionSchema
 > =
     // Express version: (req, res, next, endpointInfo)
-    ((req: express.Request & { ctx?: Ctx }, res: express.Response, next: express.NextFunction, endpointInfo: EndpointInfo<TDef>) => void | Promise<void>) |
+    ((req: express.Request & { ctx?: Ctx }, res: MiddlewareResponse, next: express.NextFunction, endpointInfo: EndpointInfo<TDef>) => void | Promise<void>) |
     // Hono version: (c, next) - context is passed via c.req.ctx -> c.ctx copying
     ((c: any, next: any) => void | Promise<void>);
 

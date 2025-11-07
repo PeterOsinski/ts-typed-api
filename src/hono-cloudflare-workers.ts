@@ -546,6 +546,20 @@ export function registerHonoRouteHandlers<
                                         error: [{ field: "general", type: "general", message: "Internal server error: Constructed response failed validation." }]
                                     }, 500);
                                 }
+                            },
+                            status: (status: number) => {
+                                // For middleware that might use status, but since not used, stub
+                                (c as any).__response = new Response(null, { status: status });
+                            },
+                            json: (data: any) => {
+                                // Send json response
+                                (c as any).__response = c.json(data);
+                            },
+                            setHeader: (name: string, value: string) => {
+                                c.header(name, value);
+                            },
+                            end: () => {
+                                // Perhaps do nothing or set response
                             }
                         };
 

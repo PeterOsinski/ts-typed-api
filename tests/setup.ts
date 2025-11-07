@@ -7,6 +7,7 @@ import { PublicApiDefinition as SimplePublicApiDefinition, PrivateApiDefinition 
 import { PublicApiDefinition as AdvancedPublicApiDefinition, PrivateApiDefinition as AdvancedPrivateApiDefinition } from '../examples/advanced/definitions';
 import { RegisterHandlers, RegisterHonoHandlers, CreateApiDefinition, CreateResponses, CreateTypedHonoHandlerWithContext } from '../src';
 import { z } from 'zod';
+import { EndpointMiddlewareCtx } from '../src/object-handlers';
 
 // Shared handler definitions for simple API
 const simplePublicHandlers = {
@@ -444,7 +445,7 @@ async function startHonoServer(): Promise<void> {
     });
 }
 
-type Ctx = { user?: string; noAuth?: boolean; forbidden?: boolean }
+type Ctx = { user?: string; noAuth?: boolean; forbidden?: boolean, middlewareData?: string }
 
 // Shared handlers for middleware tests
 const middlewareTestHandlers = {
@@ -471,27 +472,27 @@ const middlewareTestHandlers = {
 // Generic middleware setup function
 function setupMiddlewareApp(app: any, isHono: boolean) {
     // Define middleware functions
-    const loggingMiddleware = async (req: any, res: any, next: any, endpointInfo: any) => {
+    const loggingMiddleware: EndpointMiddlewareCtx<Ctx> = async (req, res, next, endpointInfo) => {
         console.log(`[Test] ${req.method} ${req.path} - Domain: ${endpointInfo.domain}, Route: ${endpointInfo.routeKey}`);
         await next();
     }
 
-    const contextMiddleware = async (req: any, res: any, next: any) => {
+    const contextMiddleware: EndpointMiddlewareCtx<Ctx> = async (req, res, next) => {
         req.ctx = { ...req.ctx, middlewareData: "middleware-added-data" };
         await next();
     }
 
-    const authMiddleware = async (req: any, res: any, next: any, endpointInfo: any) => {
+    const authMiddleware: EndpointMiddlewareCtx<Ctx> = async (req, res, next, endpointInfo) => {
         // Only apply auth checks to protected routes
         if (endpointInfo.domain === 'public' && endpointInfo.routeKey === 'protected') {
             const authHeader = req.headers?.authorization;
             if (!authHeader) {
-                (res as any).respond(401, { error: "No authorization header" });
+                res.respond(401, { error: "No authorization header" });
             } else if (authHeader === 'Bearer valid-token') {
                 req.ctx = { ...req.ctx, user: 'testuser' };
                 await next();
             } else {
-                (res as any).respond(403, { error: "Forbidden" });
+                res.respond(403, { error: "Forbidden" });
             }
         } else {
             await next();
