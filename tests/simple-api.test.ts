@@ -107,6 +107,26 @@ describe.each([
             expect(customHeader).toBe('test-value');
             expect(anotherHeader).toBe('another-value');
         });
+
+        test('generateUrl should return correct URL for ping', () => {
+            const url = client.generateUrl('common', 'ping');
+            expect(url).toBe(`${baseUrl}/api/v1/public/ping`);
+        });
+
+        test('generateUrl should return correct URL for probe1 without query', () => {
+            const url = client.generateUrl('status', 'probe1');
+            expect(url).toBe(`${baseUrl}/api/v1/public/status/probe1`);
+        });
+
+        test('generateUrl should return correct URL for probe1 with query', () => {
+            const url = client.generateUrl('status', 'probe1', undefined, { match: true });
+            expect(url).toBe(`${baseUrl}/api/v1/public/status/probe1?match=true`);
+        });
+
+        test('generateUrl should return correct URL for probe2', () => {
+            const url = client.generateUrl('status', 'probe2');
+            expect(url).toBe(`${baseUrl}/api/v1/public/status/probe2`);
+        });
     });
 
     describe('Private API', () => {
@@ -126,6 +146,11 @@ describe.each([
             });
 
             expect(result).toBe('ok');
+        });
+
+        test('generateUrl should return correct URL for user get with params', () => {
+            const url = client.generateUrl('user', 'get', { id: 'test-id' });
+            expect(url).toBe(`${baseUrl}/api/v1/private/user/test-id`);
         });
     });
 

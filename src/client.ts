@@ -217,6 +217,56 @@ export class ApiClient<TActualDef extends BaseApiDefinitionSchema> { // Made gen
     }
 
     /**
+     * Generates the full URL for a specific route, incorporating path parameters and query parameters.
+     * @template TDomain The domain (controller) of the API.
+     * @template TRouteKey The key of the route within the domain.
+     * @param domain The API domain (e.g., 'user').
+     * @param routeKey The API route key (e.g., 'getUsers').
+     * @param params Optional path parameters to replace in the route path.
+     * @param query Optional query parameters to append to the URL.
+     * @returns The full URL as a string.
+     * @throws Error if the route configuration is invalid.
+     */
+    public generateUrl<
+        TDomain extends keyof TActualDef['endpoints'],
+        TRouteKey extends keyof TActualDef['endpoints'][TDomain]
+    >(
+        domain: TDomain,
+        routeKey: TRouteKey,
+        params?: ApiClientParams<TActualDef, TDomain, TRouteKey>,
+        query?: ApiClientQuery<TActualDef, TDomain, TRouteKey>
+    ): string {
+        const routeInfo = this.apiDefinitionObject.endpoints[domain as string][routeKey as string] as RouteSchema;
+
+        if (!routeInfo || typeof routeInfo.path !== 'string') {
+            throw new Error(`API route configuration ${String(domain)}.${String(routeKey)} not found or invalid.`);
+        }
+
+        let urlPath = routeInfo.path;
+        if (params) {
+            const paramsRecord = params as Record<string, string | number | boolean>;
+            for (const key in paramsRecord) {
+                if (Object.prototype.hasOwnProperty.call(paramsRecord, key) && paramsRecord[key] !== undefined) {
+                    urlPath = urlPath.replace(`:${key}`, String(paramsRecord[key]));
+                }
+            }
+        }
+
+        const url = new URL(this.getBaseUrlWithPrefix() + urlPath);
+
+        if (query) {
+            const queryRecord = query as Record<string, any>;
+            for (const key in queryRecord) {
+                if (Object.prototype.hasOwnProperty.call(queryRecord, key) && queryRecord[key] !== undefined) {
+                    url.searchParams.append(key, String(queryRecord[key]));
+                }
+            }
+        }
+
+        return url.toString();
+    }
+
+    /**
      * Makes an API call to a specified domain and route.
      * @template TDomain The domain (controller) of the API.
      * @template TRouteKey The key of the route within the domain.

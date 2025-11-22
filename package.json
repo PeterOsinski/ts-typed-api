@@ -1,6 +1,6 @@
 {
   "name": "ts-typed-api",
-  "version": "0.2.15",
+  "version": "0.2.16",
   "description": "A lightweight, type-safe RPC library for TypeScript with Zod validation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
