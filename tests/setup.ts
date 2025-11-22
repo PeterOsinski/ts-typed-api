@@ -14,6 +14,11 @@ const simplePublicHandlers = {
     common: {
         ping: async (req: any, res: any) => {
             res.respond(200, "pong");
+        },
+        customHeaders: async (req: any, res: any) => {
+            res.setHeader('X-Custom-Test', 'test-value');
+            res.setHeader('X-Another-Header', 'another-value');
+            res.respond(200, { message: "headers set" });
         }
     },
     status: {

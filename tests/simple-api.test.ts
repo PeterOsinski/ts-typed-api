@@ -74,6 +74,39 @@ describe.each([
 
             expect(result).toBe('pong');
         });
+
+        test('should set response headers', async () => {
+            // Direct HTTP call to test header setting
+            const response = await fetch(`${baseUrl}/api/v1/public/ping`);
+            const contentType = response.headers.get('content-type');
+
+            // Check that standard headers are set
+            if (serverName === 'Express') {
+                expect(contentType).toBe('application/json; charset=utf-8');
+            } else {
+                // Hono sets content-type differently
+                expect(contentType).toBe('application/json');
+            }
+            expect(response.status).toBe(200);
+        });
+
+        test('should set custom headers', async () => {
+            // Direct HTTP call to test custom header setting
+            const response = await fetch(`${baseUrl}/api/v1/public/custom-headers`);
+            const data = await response.json();
+
+            // Check response data (unified response format)
+            expect(data.data).toEqual({ message: "headers set" });
+            expect(data).not.toHaveProperty('error'); // Error should not be present for success responses
+            expect(response.status).toBe(200);
+
+            // Check custom headers
+            const customHeader = response.headers.get('x-custom-test');
+            const anotherHeader = response.headers.get('x-another-header');
+
+            expect(customHeader).toBe('test-value');
+            expect(anotherHeader).toBe('another-value');
+        });
     });
 
     describe('Private API', () => {

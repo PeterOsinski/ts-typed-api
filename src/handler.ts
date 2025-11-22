@@ -355,7 +355,7 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                     url: expressReq.url,
                 } as TypedRequest<TDef, typeof currentDomain, typeof currentRouteKey>;
 
-                // Augment expressRes with the .respond method, using TDef
+                // Augment expressRes with the .respond and .setHeader methods, using TDef
                 const typedExpressRes = expressRes as TypedResponse<TDef, typeof currentDomain, typeof currentRouteKey>;
 
                 typedExpressRes.respond = (status, dataForResponse) => {
@@ -406,6 +406,12 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                             error: [{ field: "general", type: "general", message: "Internal server error: Constructed response failed validation." }]
                         });
                     }
+                };
+
+                typedExpressRes.setHeader = (name: string, value: string) => {
+                    // Call the original Express setHeader method to avoid recursion
+                    Object.getPrototypeOf(expressRes).setHeader.call(expressRes, name, value);
+                    return typedExpressRes;
                 };
 
                 const specificHandlerFn = handler as (

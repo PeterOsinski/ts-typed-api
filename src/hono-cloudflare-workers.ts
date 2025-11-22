@@ -407,7 +407,11 @@ export function registerHonoRouteHandlers<
                 } as TypedRequest<TDef, typeof currentDomain, typeof currentRouteKey>;
 
                 const fakeRes = {
-                    respond: (c as any).respond
+                    respond: (c as any).respond,
+                    setHeader: (name: string, value: string) => {
+                        c.header(name, value);
+                        return fakeRes;
+                    }
                 } as TypedResponse<TDef, typeof currentDomain, typeof currentRouteKey>;
 
                 const specificHandlerFn = handler as (

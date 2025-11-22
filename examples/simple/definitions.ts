@@ -34,6 +34,15 @@ export const PublicApiDefinition = CreateApiDefinition({
                     200: z.enum(["pong"]),
                 })
             },
+            customHeaders: {
+                method: 'GET',
+                path: '/custom-headers',
+                responses: CreateResponses({
+                    200: z.object({
+                        message: z.string()
+                    }),
+                })
+            },
         }
     }
 })
