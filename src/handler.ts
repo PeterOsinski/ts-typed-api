@@ -408,6 +408,13 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                     }
                 };
 
+                typedExpressRes.respondContentType = (status: number, data: any, contentType: string) => {
+                    // Set the content type header
+                    typedExpressRes.setHeader('Content-Type', contentType);
+                    // Send the raw data without JSON wrapping or validation
+                    typedExpressRes.status(status).send(data);
+                };
+
                 typedExpressRes.setHeader = (name: string, value: string) => {
                     // Call the original Express setHeader method to avoid recursion
                     Object.getPrototypeOf(expressRes).setHeader.call(expressRes, name, value);

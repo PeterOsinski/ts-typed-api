@@ -13,7 +13,11 @@ import { EndpointMiddlewareCtx } from '../src/object-handlers';
 const simplePublicHandlers = {
     common: {
         ping: async (req: any, res: any) => {
-            res.respond(200, "pong");
+            if (req.query?.format === 'html') {
+                res.respondContentType(200, "<h1>pong</h1>", "text/html");
+            } else {
+                res.respond(200, "pong");
+            }
         },
         customHeaders: async (req: any, res: any) => {
             res.setHeader('X-Custom-Test', 'test-value');

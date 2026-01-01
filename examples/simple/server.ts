@@ -1,6 +1,6 @@
 import express from 'express';
 import { PrivateApiDefinition, PublicApiDefinition } from './definitions';
-import { RegisterHandlers, EndpointMiddleware, createTypedHandler } from '../../src';
+import { RegisterHandlers, EndpointMiddleware } from '../../src';
 const app = express();
 const port = 3001;
 app.set('etag', false);
@@ -39,7 +39,16 @@ RegisterHandlers(app, PublicApiDefinition, {
         // TypeScript will give you type errors if this handler is missing
         ping: async (req, res) => {
             // req and res are fully typed based on the API definition
-            res.respond(200, "pong");
+            if (req.query.format === 'html') {
+                res.respondContentType(200, "<h1>pong</h1>", "text/html");
+            } else {
+                res.respond(200, "pong");
+            }
+        },
+        customHeaders: async (req, res) => {
+            res.setHeader('x-custom-test', 'test-value');
+            res.setHeader('x-another-header', 'another-value');
+            res.respond(200, { message: "headers set" });
         }
     },
     status: {
@@ -59,10 +68,10 @@ RegisterHandlers(app, PublicApiDefinition, {
 // Add another api definition
 RegisterHandlers(app, PrivateApiDefinition, {
     user: {
-        get: createTypedHandler(async (req, res) => {
+        get: async (req, res) => {
             console.log('Fetching user', req.params.id);
             res.respond(200, "ok");
-        })
+        }
     }
 }, [loggingMiddlewareTyped, authMiddleware]);
 

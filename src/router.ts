@@ -59,6 +59,7 @@ export interface TypedResponse<
     L extends Record<string, any> = Record<string, any>
 > extends express.Response<any, L> {
     respond: RespondFunction<TDef, TDomain, TRouteName>;
+    respondContentType: (status: number, data: any, contentType: string) => void;
     setHeader: (name: string, value: string) => this;
     json: <B = any>(body: B) => this; // Keep original json
 }

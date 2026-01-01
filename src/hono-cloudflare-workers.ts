@@ -408,6 +408,13 @@ export function registerHonoRouteHandlers<
 
                 const fakeRes = {
                     respond: (c as any).respond,
+                    respondContentType: (status: number, data: any, contentType: string) => {
+                        // For Hono, set the response directly
+                        (c as any).__response = new Response(data, {
+                            status: status,
+                            headers: { 'Content-Type': contentType }
+                        });
+                    },
                     setHeader: (name: string, value: string) => {
                         c.header(name, value);
                         return fakeRes;

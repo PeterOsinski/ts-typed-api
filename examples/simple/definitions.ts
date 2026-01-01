@@ -30,6 +30,9 @@ export const PublicApiDefinition = CreateApiDefinition({
             ping: {
                 method: 'GET',
                 path: '/ping',
+                query: z.object({
+                    format: z.enum(["json", "html"]).optional()
+                }),
                 responses: CreateResponses({
                     200: z.enum(["pong"]),
                 })

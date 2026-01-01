@@ -27,6 +27,19 @@ describe.each([
             expect(result).toBe('pong');
         });
 
+        test('should ping successfully with HTML format', async () => {
+            const response = await fetch(`${baseUrl}/api/v1/public/ping?format=html`);
+            expect(response.status).toBe(200);
+            const contentType = response.headers.get('content-type');
+            if (serverName === 'Express') {
+                expect(contentType).toBe('text/html; charset=utf-8');
+            } else {
+                expect(contentType).toBe('text/html');
+            }
+            const html = await response.text();
+            expect(html).toBe('<h1>pong</h1>');
+        });
+
         test('should handle probe1 with match=true', async () => {
             const result = await client.callApi('status', 'probe1', {
                 query: { match: true }
