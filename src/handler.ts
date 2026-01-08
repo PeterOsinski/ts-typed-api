@@ -83,9 +83,21 @@ function preprocessQueryParams(query: any, querySchema?: z.ZodTypeAny): any {
 // Helper function to create respond method for middleware compatibility
 function createRespondFunction(
     routeDefinition: RouteSchema,
-    responseSetter: (status: number, data: any) => void
+    responseSetter: (status: number, data: any) => void,
+    middlewareRes?: any
 ) {
     return (status: number, data: any) => {
+        // Call any registered response callbacks
+        if (middlewareRes && middlewareRes._responseCallbacks) {
+            middlewareRes._responseCallbacks.forEach((callback: (status: number, data: any) => void) => {
+                try {
+                    callback(status, data);
+                } catch (error) {
+                    console.error('Error in response callback:', error);
+                }
+            });
+        }
+
         const responseSchema = routeDefinition.responses[status];
 
         if (!responseSchema) {
@@ -491,9 +503,13 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                         const middlewareRes = res as any;
                         middlewareRes.respond = createRespondFunction(routeDefinition, (status, data) => {
                             res.status(status).json(data);
-                        });
-                        middlewareRes.onFinish = (callback: () => void) => {
-                            res.on('finish', callback);
+                        }, middlewareRes);
+                        middlewareRes.onResponse = (callback: (status: number, data: any) => void) => {
+                            // Store callback to be called when respond() is invoked
+                            if (!middlewareRes._responseCallbacks) {
+                                middlewareRes._responseCallbacks = [];
+                            }
+                            middlewareRes._responseCallbacks.push(callback);
                         };
                         await middleware(req, middlewareRes as MiddlewareResponse, next, { domain: currentDomain, routeKey: currentRouteKey } as any);
                     } catch (error) {

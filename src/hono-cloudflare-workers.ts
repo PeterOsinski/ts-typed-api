@@ -508,9 +508,20 @@ export function registerHonoRouteHandlers<
                             originalUrl: c.req.url
                         };
 
-                        // Create minimal res object with respond and onFinish methods for middleware compatibility
+                        // Create minimal res object with respond and onResponse methods for middleware compatibility
                         const fakeRes = {
                             respond: (status: number, data: any) => {
+                                // Call any registered response callbacks
+                                if ((c as any)._responseCallbacks) {
+                                    (c as any)._responseCallbacks.forEach((callback: (status: number, data: any) => void) => {
+                                        try {
+                                            callback(status, data);
+                                        } catch (error) {
+                                            console.error('Error in response callback:', error);
+                                        }
+                                    });
+                                }
+
                                 const responseSchema = routeDefinition.responses[status];
 
                                 if (!responseSchema) {
@@ -572,10 +583,12 @@ export function registerHonoRouteHandlers<
                             end: () => {
                                 // Perhaps do nothing or set response
                             },
-                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                            onFinish: (_callback: () => void) => {
-                                // Hono doesn't have a 'finish' event like Express, so this is a no-op
-                                // Middleware can still call this method without errors
+                            onResponse: (callback: (status: number, data: any) => void) => {
+                                // Store callback to be called when respond() is invoked
+                                if (!(c as any)._responseCallbacks) {
+                                    (c as any)._responseCallbacks = [];
+                                }
+                                (c as any)._responseCallbacks.push(callback);
                             }
                         };
 

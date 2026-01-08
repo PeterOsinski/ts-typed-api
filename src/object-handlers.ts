@@ -43,7 +43,7 @@ export interface MiddlewareResponse {
     json(data: any): void;
     setHeader(name: string, value: string): void;
     end(): void;
-    onFinish(callback: () => void): void;
+    onResponse(callback: (status: number, data: any) => void): void;
 }
 
 // Unified middleware type that works for both Express and Hono with context typing

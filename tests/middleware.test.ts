@@ -106,9 +106,9 @@ describe.each([
         });
     });
 
-    describe('Timing Middleware', () => {
-        test('should execute timing middleware without breaking functionality', async () => {
-            // The timing middleware should not interfere with normal operation
+    describe('Response Logging Middleware', () => {
+        test('should log response status without breaking functionality', async () => {
+            // The response logging middleware should not interfere with normal operation
             const result = await client.callApi('public', 'ping', {}, {
                 200: ({ data }) => {
                     expect(data.message).toBe('pong');
@@ -120,10 +120,10 @@ describe.each([
             });
 
             expect(result.message).toBe('pong');
-            // The timing logs are printed to console as verified by the test output above
+            // The response logs are printed to console as verified by the test output above
         });
 
-        test('should execute timing middleware for protected routes', async () => {
+        test('should log response status for protected routes', async () => {
             const result = await client.callApi('public', 'protected', { headers: { Authorization: 'Bearer valid-token' } }, {
                 200: ({ data }) => {
                     expect(data.message).toBe('protected content');
@@ -142,7 +142,7 @@ describe.each([
             });
 
             expect(result.user).toBe('testuser');
-            // The timing logs are printed to console as verified by the test output above
+            // The response logs are printed to console as verified by the test output above
         });
     });
 });

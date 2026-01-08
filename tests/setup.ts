@@ -497,10 +497,9 @@ function setupMiddlewareApp(app: any, isHono: boolean) {
 
     // Define middleware functions
     const timingMiddleware: EndpointMiddlewareCtx<Ctx> = async (req, res, next, endpointInfo) => {
-        const start = Date.now();
-        res.onFinish(() => {
-            const duration = Date.now() - start;
-            console.log(`[TIMING] ${endpointInfo.domain}.${endpointInfo.routeKey} completed in ${duration}ms`);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        res.onResponse((status, _data) => {
+            console.log(`[TIMING] ${endpointInfo.domain}.${endpointInfo.routeKey} responded with ${status}`);
         });
         await next();
     };
