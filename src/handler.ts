@@ -371,6 +371,17 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                 const typedExpressRes = expressRes as TypedResponse<TDef, typeof currentDomain, typeof currentRouteKey>;
 
                 typedExpressRes.respond = (status, dataForResponse) => {
+                    // Call any registered response callbacks from middleware
+                    if ((expressRes as any)._responseCallbacks) {
+                        (expressRes as any)._responseCallbacks.forEach((callback: (status: number, data: any) => void) => {
+                            try {
+                                callback(status, dataForResponse);
+                            } catch (error) {
+                                console.error('Error in response callback:', error);
+                            }
+                        });
+                    }
+
                     // Use the passed apiDefinition object
                     const routeSchemaForHandler = apiDefinition.endpoints[currentDomain][currentRouteKey] as RouteSchema;
                     const responseSchemaForStatus = routeSchemaForHandler.responses[status as number];
@@ -505,11 +516,11 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                             res.status(status).json(data);
                         }, middlewareRes);
                         middlewareRes.onResponse = (callback: (status: number, data: any) => void) => {
-                            // Store callback to be called when respond() is invoked
-                            if (!middlewareRes._responseCallbacks) {
-                                middlewareRes._responseCallbacks = [];
+                            // Store callback on the underlying express response so it's accessible from TypedResponse
+                            if (!(res as any)._responseCallbacks) {
+                                (res as any)._responseCallbacks = [];
                             }
-                            middlewareRes._responseCallbacks.push(callback);
+                            (res as any)._responseCallbacks.push(callback);
                         };
                         await middleware(req, middlewareRes as MiddlewareResponse, next, { domain: currentDomain, routeKey: currentRouteKey } as any);
                     } catch (error) {

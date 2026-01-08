@@ -480,21 +480,6 @@ const middlewareTestHandlers = {
 
 // Generic middleware setup function
 function setupMiddlewareApp(app: any, isHono: boolean) {
-    // Mock console.log for timing middleware tests
-    const originalConsoleLog = console.log;
-    const timingLogs: string[] = [];
-    console.log = (...args: any[]) => {
-        const message = args.join(' ');
-        if (message.startsWith('[TIMING]')) {
-            timingLogs.push(message);
-        }
-        originalConsoleLog(...args);
-    };
-
-    // Store timing logs on the app for testing
-    (app as any).timingLogs = timingLogs;
-    (app as any).resetTimingLogs = () => { timingLogs.length = 0; };
-
     // Define middleware functions
     const timingMiddleware: EndpointMiddlewareCtx<Ctx> = async (req, res, next, endpointInfo) => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -341,6 +341,17 @@ export function registerHonoRouteHandlers<
 
                 // Add respond method to context
                 (c as any).respond = (status: number, data: any) => {
+                    // Call any registered response callbacks from middleware
+                    if ((c as any)._responseCallbacks) {
+                        (c as any)._responseCallbacks.forEach((callback: (status: number, data: any) => void) => {
+                            try {
+                                callback(status, data);
+                            } catch (error) {
+                                console.error('Error in response callback:', error);
+                            }
+                        });
+                    }
+
                     const responseSchema = routeDefinition.responses[status];
 
                     if (!responseSchema) {

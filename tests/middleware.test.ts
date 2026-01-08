@@ -107,6 +107,16 @@ describe.each([
     });
 
     describe('Response Logging Middleware', () => {
+        let consoleSpy: jest.SpyInstance;
+
+        beforeEach(() => {
+            consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+        });
+
+        afterEach(() => {
+            consoleSpy.mockRestore();
+        });
+
         test('should log response status without breaking functionality', async () => {
             // The response logging middleware should not interfere with normal operation
             const result = await client.callApi('public', 'ping', {}, {
@@ -120,7 +130,10 @@ describe.each([
             });
 
             expect(result.message).toBe('pong');
-            // The response logs are printed to console as verified by the test output above
+
+            // Assert that console.log was called with the expected message
+            expect(consoleSpy).toHaveBeenCalledWith('[TIMING] public.ping responded with 200');
+            expect(consoleSpy).toHaveBeenCalledWith('[Test] GET /api/v1/ping - Domain: public, Route: ping');
         });
 
         test('should log response status for protected routes', async () => {
@@ -142,7 +155,31 @@ describe.each([
             });
 
             expect(result.user).toBe('testuser');
-            // The response logs are printed to console as verified by the test output above
+
+            // Assert that console.log was called with the expected messages
+            expect(consoleSpy).toHaveBeenCalledWith('[TIMING] public.protected responded with 200');
+            expect(consoleSpy).toHaveBeenCalledWith('[Test] GET /api/v1/protected - Domain: public, Route: protected');
+        });
+
+        test('should log error status codes for auth failures', async () => {
+            await expect(
+                client.callApi('public', 'protected', {}, {
+                    200: ({ data }) => data,
+                    401: ({ data }) => {
+                        expect(data.error).toBe('No authorization header');
+                        throw new Error('Authentication failed as expected');
+                    },
+                    403: ({ data }) => {
+                        throw new Error(`Unexpected forbidden: ${data.error}`);
+                    },
+                    422: ({ error }) => {
+                        throw new Error(`Validation error: ${JSON.stringify(error)}`);
+                    }
+                })
+            ).rejects.toThrow('Authentication failed as expected');
+
+            // Assert that console.log was called with the error status
+            expect(consoleSpy).toHaveBeenCalledWith('[TIMING] public.protected responded with 401');
         });
     });
 });
