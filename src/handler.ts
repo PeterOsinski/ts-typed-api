@@ -487,11 +487,14 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
             middlewares.forEach(middleware => {
                 const wrappedMiddleware: express.RequestHandler = async (req, res, next) => {
                     try {
-                        // Add respond method to res for middleware compatibility
+                        // Add respond and onFinish methods to res for middleware compatibility
                         const middlewareRes = res as any;
                         middlewareRes.respond = createRespondFunction(routeDefinition, (status, data) => {
                             res.status(status).json(data);
                         });
+                        middlewareRes.onFinish = (callback: () => void) => {
+                            res.on('finish', callback);
+                        };
                         await middleware(req, middlewareRes as MiddlewareResponse, next, { domain: currentDomain, routeKey: currentRouteKey } as any);
                     } catch (error) {
                         next(error);

@@ -508,7 +508,7 @@ export function registerHonoRouteHandlers<
                             originalUrl: c.req.url
                         };
 
-                        // Create minimal res object with respond method for middleware compatibility
+                        // Create minimal res object with respond and onFinish methods for middleware compatibility
                         const fakeRes = {
                             respond: (status: number, data: any) => {
                                 const responseSchema = routeDefinition.responses[status];
@@ -571,6 +571,11 @@ export function registerHonoRouteHandlers<
                             },
                             end: () => {
                                 // Perhaps do nothing or set response
+                            },
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                            onFinish: (_callback: () => void) => {
+                                // Hono doesn't have a 'finish' event like Express, so this is a no-op
+                                // Middleware can still call this method without errors
                             }
                         };
 

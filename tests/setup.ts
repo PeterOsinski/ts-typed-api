@@ -480,7 +480,31 @@ const middlewareTestHandlers = {
 
 // Generic middleware setup function
 function setupMiddlewareApp(app: any, isHono: boolean) {
+    // Mock console.log for timing middleware tests
+    const originalConsoleLog = console.log;
+    const timingLogs: string[] = [];
+    console.log = (...args: any[]) => {
+        const message = args.join(' ');
+        if (message.startsWith('[TIMING]')) {
+            timingLogs.push(message);
+        }
+        originalConsoleLog(...args);
+    };
+
+    // Store timing logs on the app for testing
+    (app as any).timingLogs = timingLogs;
+    (app as any).resetTimingLogs = () => { timingLogs.length = 0; };
+
     // Define middleware functions
+    const timingMiddleware: EndpointMiddlewareCtx<Ctx> = async (req, res, next, endpointInfo) => {
+        const start = Date.now();
+        res.onFinish(() => {
+            const duration = Date.now() - start;
+            console.log(`[TIMING] ${endpointInfo.domain}.${endpointInfo.routeKey} completed in ${duration}ms`);
+        });
+        await next();
+    };
+
     const loggingMiddleware: EndpointMiddlewareCtx<Ctx> = async (req, res, next, endpointInfo) => {
         console.log(`[Test] ${req.method} ${req.path} - Domain: ${endpointInfo.domain}, Route: ${endpointInfo.routeKey}`);
         await next();
@@ -509,6 +533,7 @@ function setupMiddlewareApp(app: any, isHono: boolean) {
     }
 
     const middlewares = [
+        timingMiddleware,
         loggingMiddleware,
         contextMiddleware,
         authMiddleware

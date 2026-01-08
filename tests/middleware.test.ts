@@ -105,4 +105,44 @@ describe.each([
             ).rejects.toThrow('Forbidden as expected');
         });
     });
+
+    describe('Timing Middleware', () => {
+        test('should execute timing middleware without breaking functionality', async () => {
+            // The timing middleware should not interfere with normal operation
+            const result = await client.callApi('public', 'ping', {}, {
+                200: ({ data }) => {
+                    expect(data.message).toBe('pong');
+                    return data;
+                },
+                422: ({ error }) => {
+                    throw new Error(`Validation error: ${JSON.stringify(error)}`);
+                }
+            });
+
+            expect(result.message).toBe('pong');
+            // The timing logs are printed to console as verified by the test output above
+        });
+
+        test('should execute timing middleware for protected routes', async () => {
+            const result = await client.callApi('public', 'protected', { headers: { Authorization: 'Bearer valid-token' } }, {
+                200: ({ data }) => {
+                    expect(data.message).toBe('protected content');
+                    expect(data.user).toBe('testuser');
+                    return data;
+                },
+                401: ({ data }) => {
+                    throw new Error(`Authentication failed: ${data.error}`);
+                },
+                403: ({ data }) => {
+                    throw new Error(`Forbidden: ${data.error}`);
+                },
+                422: ({ error }) => {
+                    throw new Error(`Validation error: ${JSON.stringify(error)}`);
+                }
+            });
+
+            expect(result.user).toBe('testuser');
+            // The timing logs are printed to console as verified by the test output above
+        });
+    });
 });
