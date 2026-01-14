@@ -184,13 +184,16 @@ type RouteWithBody = {
 };
 
 // Union type for all route schemas
-export type RouteSchema = RouteWithoutBody | RouteWithBody;
+export type RouteSchema = (RouteWithoutBody | RouteWithBody) & {
+    description?: string;
+};
 
 // Define the structure for the entire API definition object
 // Now includes an optional prefix and endpoints record
-export type ApiDefinitionSchema = {
+export type ApiDefinitionSchema<TEndpoints extends Record<string, Record<string, RouteSchema>> = Record<string, Record<string, RouteSchema>>> = {
     prefix?: string;
-    endpoints: Record<string, Record<string, RouteSchema>>;
+    sectionDescriptions?: Partial<Record<keyof TEndpoints, string>>;
+    endpoints: TEndpoints;
 };
 
 // Helper function to ensure the definition conforms to ApiDefinitionSchema

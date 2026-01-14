@@ -316,4 +316,105 @@ describe('OpenAPI Specification Generation', () => {
             }
         }
     });
+
+    test('should include section descriptions in OpenAPI tags', () => {
+        const spec = generateOpenApiSpec(PublicApiDefinition);
+
+        expect(spec).toBeDefined();
+        expect(spec.tags).toBeDefined();
+        expect(Array.isArray(spec.tags)).toBe(true);
+
+        // Check that tags with descriptions are included
+        const statusTag = spec.tags?.find((tag: any) => tag.name === 'status');
+        const commonTag = spec.tags?.find((tag: any) => tag.name === 'common');
+
+        expect(statusTag).toBeDefined();
+        expect(statusTag?.description).toBe('Health check and status endpoints');
+
+        expect(commonTag).toBeDefined();
+        expect(commonTag?.description).toBe('Common utility endpoints');
+    });
+
+    test('should include route descriptions in operation descriptions', () => {
+        const spec = generateOpenApiSpec(PublicApiDefinition);
+
+        expect(spec).toBeDefined();
+        expect(spec.paths).toBeDefined();
+
+        // Check specific endpoints for descriptions
+        const probe1Path = spec.paths?.['/api/v1/public/status/probe1'];
+        const pingPath = spec.paths?.['/api/v1/public/ping'];
+
+        expect(probe1Path?.get?.description).toBe('Advanced health check with query parameters');
+        expect(pingPath?.get?.description).toBe('Basic ping endpoint to check if the service is alive');
+    });
+
+    test('should handle API definitions without descriptions', () => {
+        // Create a definition without descriptions
+        const NoDescriptionDefinition = CreateApiDefinition({
+            endpoints: {
+                test: {
+                    simpleEndpoint: {
+                        method: 'GET' as const,
+                        path: '/test',
+                        responses: {
+                            200: z.object({ message: z.string() })
+                        }
+                    }
+                }
+            }
+        });
+
+        const spec = generateOpenApiSpec(NoDescriptionDefinition);
+
+        expect(spec).toBeDefined();
+        expect(spec.tags).toBeUndefined(); // No tags should be generated when no descriptions
+
+        const testPath = spec.paths?.['/test'];
+        expect(testPath?.get?.description).toBeUndefined(); // No description on operation
+    });
+
+    test('should handle partial section descriptions', () => {
+        // Create a definition with only some sections having descriptions
+        const PartialDescriptionDefinition = CreateApiDefinition({
+            sectionDescriptions: {
+                section1: 'Description for section 1'
+                // section2 intentionally omitted
+            },
+            endpoints: {
+                section1: {
+                    endpoint1: {
+                        method: 'GET' as const,
+                        path: '/section1/endpoint1',
+                        responses: {
+                            200: z.object({ data: z.string() })
+                        }
+                    }
+                },
+                section2: {
+                    endpoint2: {
+                        method: 'GET' as const,
+                        path: '/section2/endpoint2',
+                        responses: {
+                            200: z.object({ data: z.string() })
+                        }
+                    }
+                }
+            }
+        });
+
+        const spec = generateOpenApiSpec(PartialDescriptionDefinition);
+
+        expect(spec).toBeDefined();
+        expect(spec.tags).toBeDefined();
+        expect(spec.tags?.length).toBe(1); // Only one tag should be generated
+
+        const section1Tag = spec.tags?.find((tag: any) => tag.name === 'section1');
+        expect(section1Tag).toBeDefined();
+        expect(section1Tag?.description).toBe('Description for section 1');
+
+        // section2 should not have a tag since it has no description
+        const section2Tag = spec.tags?.find((tag: any) => tag.name === 'section2');
+        expect(section2Tag).toBeUndefined();
+    });
 });

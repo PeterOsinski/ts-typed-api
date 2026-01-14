@@ -20,11 +20,16 @@ const ProductSchema = z.object({
 
 export const PublicApiDefinition = CreateApiDefinition({
     prefix: '/api/v1/public',
+    sectionDescriptions: {
+        auth: 'Authentication endpoints for user login and logout',
+        products: 'Product management and listing endpoints'
+    },
     endpoints: {
         auth: {
             login: {
                 method: 'POST',
                 path: '/login',
+                description: 'Authenticate a user with username and password, returns JWT token',
                 body: z.object({
                     username: z.string(),
                     password: z.string()
@@ -42,6 +47,7 @@ export const PublicApiDefinition = CreateApiDefinition({
             logout: {
                 method: 'POST',
                 path: '/logout',
+                description: 'Log out the current user and invalidate their session',
                 responses: CreateResponses({
                     200: z.object({
                         message: z.string()
@@ -53,6 +59,7 @@ export const PublicApiDefinition = CreateApiDefinition({
             list: {
                 method: 'GET',
                 path: '/products',
+                description: 'Retrieve a paginated list of products with optional filtering',
                 query: z.object({
                     page: z.number().int().min(1).optional().default(1),
                     limit: z.number().int().min(1).max(100).optional().default(10),

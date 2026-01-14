@@ -17,6 +17,10 @@ export interface OpenAPISpec {
     components?: {
         schemas?: Record<string, SchemaObject>;
     };
+    tags?: Array<{
+        name: string;
+        description?: string;
+    }>;
 }
 
 export interface PathItem {
@@ -558,10 +562,13 @@ function processRoute(
 
     const operation: Operation = {
         summary: `${route.method} ${fullPath}`,
-        description: `${route.method} operation for ${fullPath}`,
         responses,
         tags: [domain]
     };
+
+    if (route.description) {
+        operation.description = route.description;
+    }
 
     if (parameters.length > 0) {
         operation.parameters = parameters;
@@ -609,6 +616,7 @@ export function generateOpenApiSpec(
     const anonymousTypes = options.anonymousTypes || false;
 
     const allPaths: Record<string, PathItem> = {};
+    const allTags: Array<{ name: string; description?: string }> = [];
 
     // Process each definition
     for (const definition of definitionsArray) {
@@ -621,6 +629,19 @@ export function generateOpenApiSpec(
                 allPaths[path] = { ...allPaths[path], ...pathItem };
             } else {
                 allPaths[path] = pathItem;
+            }
+        }
+
+        // Collect tags from sectionDescriptions
+        if (definition.sectionDescriptions) {
+            for (const [sectionName, description] of Object.entries(definition.sectionDescriptions)) {
+                // Avoid duplicates
+                if (!allTags.find(tag => tag.name === sectionName)) {
+                    allTags.push({
+                        name: sectionName,
+                        description: description
+                    });
+                }
             }
         }
     }
@@ -638,6 +659,11 @@ export function generateOpenApiSpec(
     // Add servers if provided
     if (options.servers && options.servers.length > 0) {
         spec.servers = options.servers;
+    }
+
+    // Add tags if any were found
+    if (allTags.length > 0) {
+        spec.tags = allTags;
     }
 
     // Add components with schemas if any were registered and not using anonymous types

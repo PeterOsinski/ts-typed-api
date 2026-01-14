@@ -1,12 +1,12 @@
-import { ApiDefinitionSchema, RouteSchema } from './definition';
+import { RouteSchema } from './definition';
 import { OpenAPIRegistry, OpenApiGeneratorV31, extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z, ZodTypeAny } from 'zod';
 
 // Extend Zod with OpenAPI capabilities
 extendZodWithOpenApi(z);
 
-export function generateOpenApiSpec(
-    definitions: ApiDefinitionSchema | ApiDefinitionSchema[],
+export function generateOpenApiSpec<TEndpoints extends Record<string, Record<string, RouteSchema>>>(
+    definitions: import('./definition').ApiDefinitionSchema<TEndpoints> | import('./definition').ApiDefinitionSchema<TEndpoints>[],
     options: {
         info?: {
             title?: string;
@@ -59,11 +59,23 @@ export function generateOpenApiSpec(
         };
     }
 
+    // Collect all tags with descriptions for the OpenAPI spec
+    const allTags: Array<{ name: string; description?: string }> = [];
+
     // Iterate over multiple API definitions to register routes
     definitionArray.forEach((definition) => {
         Object.keys(definition.endpoints).forEach(domainNameKey => {
             // domainNameKey is a string, representing the domain like 'users', 'products'
             const domain = definition.endpoints[domainNameKey];
+
+            // Add tag if not already present
+            if (!allTags.find(tag => tag.name === domainNameKey)) {
+                allTags.push({
+                    name: domainNameKey,
+                    description: definition.sectionDescriptions?.[domainNameKey]
+                });
+            }
+
             Object.keys(domain).forEach(routeNameKey => {
                 // routeNameKey is a string, representing the route name like 'getUser', 'createProduct'
                 const route: RouteSchema = domain[routeNameKey];
@@ -108,6 +120,7 @@ export function generateOpenApiSpec(
 
                 const operation = {
                     summary: `${domainNameKey} - ${routeNameKey}`, // Use keys directly for summary
+                    description: route.description, // Use route description if provided
                     tags: [domainNameKey], // Use domainNameKey for tags
                     parameters: parameters.length > 0 ? parameters : undefined,
                     requestBody: requestBody,
@@ -122,7 +135,6 @@ export function generateOpenApiSpec(
                     method: route.method.toLowerCase() as any, // Ensure method is lowercase
                     path: openApiPath,
                     ...operation,
-                    // Add description or other OpenAPI fields if available in RouteSchema
                 });
             });
         });
@@ -138,6 +150,7 @@ export function generateOpenApiSpec(
             description: options.info?.description ?? 'Automatically generated OpenAPI specification',
         },
         servers: options.servers ?? [{ url: '/api' }], // Adjust as needed
+        tags: allTags.filter(tag => tag.description), // Only include tags that have descriptions
     });
 
     return openApiDocument;
