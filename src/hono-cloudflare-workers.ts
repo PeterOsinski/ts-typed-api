@@ -45,6 +45,59 @@ export type HonoTypedContext<
     respond: TypedResponse<TDef, TDomain, TRouteKey>['respond'];
 };
 
+// Helper function to preprocess parameters for type coercion
+function preprocessParams(params: any, paramsSchema?: z.ZodTypeAny): any {
+    if (!paramsSchema || !params) return params;
+
+    // Create a copy to avoid mutating the original
+    const processedParams = { ...params };
+
+    // Get the shape of the schema if it's a ZodObject
+    if (paramsSchema instanceof z.ZodObject) {
+        const shape = paramsSchema.shape;
+
+        for (const [key, value] of Object.entries(processedParams)) {
+            if (typeof value === 'string' && shape[key]) {
+                const fieldSchema = shape[key];
+
+                // Handle ZodOptional and ZodDefault wrappers
+                let innerSchema = fieldSchema;
+                if (fieldSchema instanceof z.ZodOptional) {
+                    innerSchema = fieldSchema._def.innerType;
+                }
+                if (fieldSchema instanceof z.ZodDefault) {
+                    innerSchema = fieldSchema._def.innerType;
+                }
+
+                // Handle nested ZodOptional/ZodDefault combinations
+                while (innerSchema instanceof z.ZodOptional || innerSchema instanceof z.ZodDefault) {
+                    if (innerSchema instanceof z.ZodOptional) {
+                        innerSchema = innerSchema._def.innerType;
+                    } else if (innerSchema instanceof z.ZodDefault) {
+                        innerSchema = innerSchema._def.innerType;
+                    }
+                }
+
+                // Convert based on the inner schema type
+                if (innerSchema instanceof z.ZodNumber) {
+                    const numValue = Number(value);
+                    if (!isNaN(numValue)) {
+                        processedParams[key] = numValue;
+                    }
+                } else if (innerSchema instanceof z.ZodBoolean) {
+                    if (value === 'true') {
+                        processedParams[key] = true;
+                    } else if (value === 'false') {
+                        processedParams[key] = false;
+                    }
+                }
+            }
+        }
+    }
+
+    return processedParams;
+}
+
 // Helper function to preprocess query parameters for type coercion
 function preprocessQueryParams(query: any, querySchema?: z.ZodTypeAny): any {
     if (!querySchema || !query) return query;
@@ -304,9 +357,13 @@ export function registerHonoRouteHandlers<
         ) => {
             try {
                 // Parse and validate request
-                const parsedParams = ('params' in routeDefinition && routeDefinition.params)
-                    ? (routeDefinition.params as z.ZodTypeAny).parse(c.req.param())
+                const preprocessedParams = ('params' in routeDefinition && routeDefinition.params)
+                    ? preprocessParams(c.req.param(), routeDefinition.params as z.ZodTypeAny)
                     : c.req.param();
+
+                const parsedParams = ('params' in routeDefinition && routeDefinition.params)
+                    ? (routeDefinition.params as z.ZodTypeAny).parse(preprocessedParams)
+                    : preprocessedParams;
 
                 const preprocessedQuery = ('query' in routeDefinition && routeDefinition.query)
                     ? preprocessQueryParams(c.req.query(), routeDefinition.query as z.ZodTypeAny)
@@ -429,6 +486,37 @@ export function registerHonoRouteHandlers<
                     setHeader: (name: string, value: string) => {
                         c.header(name, value);
                         return fakeRes;
+                    },
+                    // SSE streaming methods for Hono
+                    startSSE: () => {
+                        c.header('Content-Type', 'text/event-stream');
+                        c.header('Cache-Control', 'no-cache');
+                        c.header('Connection', 'keep-alive');
+                        c.header('Access-Control-Allow-Origin', '*');
+                        c.header('Access-Control-Allow-Headers', 'Cache-Control');
+                    },
+                    streamSSE: (eventName?: string, data?: any, id?: string) => {
+                        let event = '';
+                        if (eventName) event += `event: ${eventName}\n`;
+                        if (id) event += `id: ${id}\n`;
+                        event += `data: ${JSON.stringify(data)}\n\n`;
+
+                        // For Hono, we need to accumulate the response
+                        if (!(c as any).__sseBuffer) {
+                            (c as any).__sseBuffer = '';
+                        }
+                        (c as any).__sseBuffer += event;
+                    },
+                    endStream: () => {
+                        // Send the accumulated SSE data
+                        const sseData = (c as any).__sseBuffer || '';
+                        (c as any).__response = new Response(sseData, {
+                            headers: {
+                                'Content-Type': 'text/event-stream',
+                                'Cache-Control': 'no-cache',
+                                'Connection': 'keep-alive'
+                            }
+                        });
                     }
                 } as TypedResponse<TDef, typeof currentDomain, typeof currentRouteKey>;
 

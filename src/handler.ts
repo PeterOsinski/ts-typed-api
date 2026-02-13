@@ -27,6 +27,59 @@ export type EndpointMiddleware<TDef extends ApiDefinitionSchema = ApiDefinitionS
     }[keyof TDef['endpoints']]
 ) => void | Promise<void>;
 
+// Helper function to preprocess parameters for type coercion
+function preprocessParams(params: any, paramsSchema?: z.ZodTypeAny): any {
+    if (!paramsSchema || !params) return params;
+
+    // Create a copy to avoid mutating the original
+    const processedParams = { ...params };
+
+    // Get the shape of the schema if it's a ZodObject
+    if (paramsSchema instanceof z.ZodObject) {
+        const shape = paramsSchema.shape;
+
+        for (const [key, value] of Object.entries(processedParams)) {
+            if (typeof value === 'string' && shape[key]) {
+                const fieldSchema = shape[key];
+
+                // Handle ZodOptional and ZodDefault wrappers
+                let innerSchema = fieldSchema;
+                if (fieldSchema instanceof z.ZodOptional) {
+                    innerSchema = fieldSchema._def.innerType;
+                }
+                if (fieldSchema instanceof z.ZodDefault) {
+                    innerSchema = fieldSchema._def.innerType;
+                }
+
+                // Handle nested ZodOptional/ZodDefault combinations
+                while (innerSchema instanceof z.ZodOptional || innerSchema instanceof z.ZodDefault) {
+                    if (innerSchema instanceof z.ZodOptional) {
+                        innerSchema = innerSchema._def.innerType;
+                    } else if (innerSchema instanceof z.ZodDefault) {
+                        innerSchema = innerSchema._def.innerType;
+                    }
+                }
+
+                // Convert based on the inner schema type
+                if (innerSchema instanceof z.ZodNumber) {
+                    const numValue = Number(value);
+                    if (!isNaN(numValue)) {
+                        processedParams[key] = numValue;
+                    }
+                } else if (innerSchema instanceof z.ZodBoolean) {
+                    if (value === 'true') {
+                        processedParams[key] = true;
+                    } else if (value === 'false') {
+                        processedParams[key] = false;
+                    }
+                }
+            }
+        }
+    }
+
+    return processedParams;
+}
+
 // Helper function to preprocess query parameters for type coercion
 function preprocessQueryParams(query: any, querySchema?: z.ZodTypeAny): any {
     if (!querySchema || !query) return query;
@@ -326,9 +379,13 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
             try {
                 // Ensure TDef is correctly used for type inference if this section needs it.
                 // Currently, parsedParams,Query,Body are based on runtime routeDefinition.
-                const parsedParams = ('params' in routeDefinition && routeDefinition.params)
-                    ? (routeDefinition.params as z.ZodTypeAny).parse(expressReq.params)
+                const preprocessedParams = ('params' in routeDefinition && routeDefinition.params)
+                    ? preprocessParams(expressReq.params, routeDefinition.params as z.ZodTypeAny)
                     : expressReq.params;
+
+                const parsedParams = ('params' in routeDefinition && routeDefinition.params)
+                    ? (routeDefinition.params as z.ZodTypeAny).parse(preprocessedParams)
+                    : preprocessedParams;
 
                 // Preprocess query parameters to handle type coercion from strings
                 const preprocessedQuery = ('query' in routeDefinition && routeDefinition.query)
@@ -442,6 +499,27 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                     // Call the original Express setHeader method to avoid recursion
                     Object.getPrototypeOf(expressRes).setHeader.call(expressRes, name, value);
                     return typedExpressRes;
+                };
+
+                // SSE streaming methods
+                typedExpressRes.startSSE = () => {
+                    typedExpressRes.setHeader('Content-Type', 'text/event-stream');
+                    typedExpressRes.setHeader('Cache-Control', 'no-cache');
+                    typedExpressRes.setHeader('Connection', 'keep-alive');
+                    typedExpressRes.setHeader('Access-Control-Allow-Origin', '*');
+                    typedExpressRes.setHeader('Access-Control-Allow-Headers', 'Cache-Control');
+                };
+
+                typedExpressRes.streamSSE = (eventName?: string, data?: any, id?: string) => {
+                    let event = '';
+                    if (eventName) event += `event: ${eventName}\n`;
+                    if (id) event += `id: ${id}\n`;
+                    event += `data: ${JSON.stringify(data)}\n\n`;
+                    expressRes.write(event);
+                };
+
+                typedExpressRes.endStream = () => {
+                    expressRes.end();
                 };
 
                 const specificHandlerFn = handler as (

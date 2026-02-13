@@ -121,6 +121,136 @@ describe.each([
             expect(anotherHeader).toBe('another-value');
         });
 
+        test('should handle long polling with delayed responses', async () => {
+            const startTime = Date.now();
+
+            // Test multiple sequences to simulate intervals
+            for (let seq = 1; seq <= 3; seq++) {
+                const result = await client.callApi('common', 'longpoll', {
+                    params: { sequence: seq }
+                }, {
+                    200: ({ data }) => {
+                        expect(data.sequence).toBe(seq);
+                        expect(data.data).toBe(`object ${seq}`);
+                        expect(typeof data.timestamp).toBe('number');
+                        expect(data.timestamp).toBeGreaterThan(startTime);
+                        return data;
+                    },
+                    422: ({ error }) => {
+                        throw new Error(`Validation error: ${JSON.stringify(error)}`);
+                    }
+                });
+
+                expect(result.sequence).toBe(seq);
+                expect(result.data).toBe(`object ${seq}`);
+            }
+
+            // Verify that total time is at least the sum of delays (100ms * 1 + 100ms * 2 + 100ms * 3 = 600ms)
+            const elapsed = Date.now() - startTime;
+            expect(elapsed).toBeGreaterThanOrEqual(600); // Allow some tolerance for test execution
+        });
+
+        test('should handle SSE streaming with multiple JSON objects', async () => {
+            // Test SSE streaming by making a fetch request and parsing the response
+            const response = await fetch(`${baseUrl}/api/v1/public/stream`);
+            expect(response.status).toBe(200);
+            expect(response.headers.get('content-type')).toBe('text/event-stream');
+
+            const responseText = await response.text();
+
+            // Parse SSE events from the response
+            const events = responseText.trim().split('\n\n');
+            expect(events).toHaveLength(3);
+
+            // Verify each event
+            for (let i = 0; i < events.length; i++) {
+                const event = events[i];
+                const lines = event.split('\n');
+                expect(lines[0]).toBe('event: update');
+
+                const dataLine = lines.find(line => line.startsWith('data: '));
+                expect(dataLine).toBeDefined();
+
+                const data = JSON.parse(dataLine!.substring(6)); // Remove 'data: ' prefix
+                expect(data.sequence).toBe(i + 1);
+                expect(data.data).toBe(`object ${i + 1}`);
+            }
+        });
+
+        test('should handle SSE streaming incrementally', async () => {
+            const response = await fetch(`${baseUrl}/api/v1/public/stream`);
+            expect(response.status).toBe(200);
+            expect(response.headers.get('content-type')).toBe('text/event-stream');
+
+            return new Promise<void>((resolve, reject) => {
+                // node-fetch returns a Node.js stream, cast properly
+                const stream = response.body as any; // Node.js Readable stream
+                let buffer = '';
+                const events: any[] = [];
+
+                stream.on('data', (chunk: Buffer) => {
+                    buffer += chunk.toString();
+
+                    // Parse complete SSE events from buffer
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+                    let currentEvent = '';
+                    for (const line of lines) {
+                        if (line === '') {
+                            // Empty line = end of event
+                            if (currentEvent.trim()) {
+                                const eventData = parseSSEEvent(currentEvent);
+                                if (eventData) events.push(eventData);
+                            }
+                            currentEvent = '';
+                        } else {
+                            currentEvent += line + '\n';
+                        }
+                    }
+
+                    // Check if we have all expected events
+                    if (events.length >= 3) {
+                        // For Node.js streams, just remove listeners to "close"
+                        stream.removeAllListeners('data');
+                        stream.removeAllListeners('error');
+                        stream.removeAllListeners('end');
+
+                        try {
+                            expect(events).toHaveLength(3);
+                            expect(events[0]).toEqual({ sequence: 1, data: 'object 1' });
+                            expect(events[1]).toEqual({ sequence: 2, data: 'object 2' });
+                            expect(events[2]).toEqual({ sequence: 3, data: 'object 3' });
+                            resolve();
+                        } catch (error) {
+                            reject(error);
+                        }
+                    }
+                });
+
+                stream.on('error', reject);
+                stream.on('end', () => {
+                    // If we get here without 3 events, test failed
+                    if (events.length < 3) {
+                        reject(new Error(`Expected 3 events, got ${events.length}`));
+                    }
+                });
+            });
+        });
+
+        function parseSSEEvent(eventText: string): any | null {
+            const lines = eventText.split('\n');
+            let data = '';
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    data = line.substring(6);
+                }
+            }
+
+            return data ? JSON.parse(data) : null;
+        }
+
         test('generateUrl should return correct URL for ping', () => {
             const url = client.generateUrl('common', 'ping');
             expect(url).toBe(`${baseUrl}/api/v1/public/ping`);

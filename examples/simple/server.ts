@@ -49,6 +49,33 @@ RegisterHandlers(app, PublicApiDefinition, {
             res.setHeader('x-custom-test', 'test-value');
             res.setHeader('x-another-header', 'another-value');
             res.respond(200, { message: "headers set" });
+        },
+        longpoll: async (req, res) => {
+            const sequence = req.params.sequence;
+            // Simulate long polling delay based on sequence
+            const delay = sequence * 100; // 100ms per sequence number
+            await new Promise(resolve => setTimeout(resolve, delay));
+            res.respond(200, {
+                sequence,
+                data: `object ${sequence}`,
+                timestamp: Date.now()
+            });
+        },
+        stream: async (req, res) => {
+            // Initialize SSE with proper headers
+            res.startSSE();
+
+            // Send SSE events with JSON data at intervals
+            await res.streamSSE('update', { sequence: 1, data: 'object 1' });
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            await res.streamSSE('update', { sequence: 2, data: 'object 2' });
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            await res.streamSSE('update', { sequence: 3, data: 'object 3' });
+
+            // Close the stream
+            res.endStream();
         }
     },
     status: {

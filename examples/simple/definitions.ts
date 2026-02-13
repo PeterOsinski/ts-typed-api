@@ -54,6 +54,29 @@ export const PublicApiDefinition = CreateApiDefinition({
                     }),
                 })
             },
+            longpoll: {
+                method: 'GET',
+                path: '/longpoll/:sequence',
+                description: 'Long polling endpoint that simulates delayed response',
+                params: z.object({
+                    sequence: z.number().int().min(1)
+                }),
+                responses: CreateResponses({
+                    200: z.object({
+                        sequence: z.number(),
+                        data: z.string(),
+                        timestamp: z.number()
+                    }),
+                })
+            },
+            stream: {
+                method: 'GET',
+                path: '/stream',
+                description: 'Server-Sent Events streaming endpoint',
+                responses: CreateResponses({
+                    200: z.string() // Raw SSE data
+                })
+            },
         }
     }
 })

@@ -62,6 +62,10 @@ export interface TypedResponse<
     respondContentType: (status: number, data: any, contentType: string) => void;
     setHeader: (name: string, value: string) => this;
     json: <B = any>(body: B) => this; // Keep original json
+    // SSE streaming methods
+    startSSE: () => void;
+    streamSSE: (eventName?: string, data?: any, id?: string) => void;
+    endStream: () => void;
 }
 
 // Type-safe route handler creation function, now generic over TDef and Ctx
