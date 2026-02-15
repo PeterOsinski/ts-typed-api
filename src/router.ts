@@ -27,6 +27,8 @@ export type TypedRequest<
     files?: File[] | { [fieldname: string]: File[] };
     // Add typed context object for carrying data between middlewares and handlers
     ctx?: Ctx;
+    // Unified client disconnection handler (Express only, undefined for Hono)
+    onClose?: (callback: () => void) => void;
 }
 
 // --- Enhanced TypedResponse with res.respond, now generic over TDef ---

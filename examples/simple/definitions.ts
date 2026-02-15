@@ -77,6 +77,20 @@ export const PublicApiDefinition = CreateApiDefinition({
                     200: z.string() // Raw SSE data
                 })
             },
+            disconnectTest: {
+                method: 'GET',
+                path: '/disconnect-test',
+                description: 'Endpoint for testing client disconnection handling',
+                query: z.object({
+                    delay: z.number().int().min(100).max(5000).optional().default(1000)
+                }),
+                responses: CreateResponses({
+                    200: z.object({
+                        message: z.string(),
+                        disconnected: z.boolean()
+                    }),
+                })
+            },
         }
     }
 })

@@ -471,7 +471,9 @@ export function registerHonoRouteHandlers<
                     ip: c.req.header('CF-Connecting-IP') || '127.0.0.1',
                     method: c.req.method,
                     path: c.req.path,
-                    originalUrl: c.req.url
+                    originalUrl: c.req.url,
+                    // Hono doesn't support long-lived connections, so onClose is undefined
+                    onClose: undefined
                 } as TypedRequest<TDef, typeof currentDomain, typeof currentRouteKey>;
 
                 const fakeRes = {

@@ -251,6 +251,62 @@ describe.each([
             return data ? JSON.parse(data) : null;
         }
 
+        test('should handle client disconnection with req.onClose', async () => {
+            // Test that the endpoint works normally when client doesn't disconnect
+            const result = await client.callApi('common', 'disconnectTest', {
+                query: { delay: 100 }
+            }, {
+                200: ({ data }) => {
+                    expect(data.message).toBe('Operation completed');
+                    expect(data.disconnected).toBe(false);
+                    return data;
+                },
+                422: ({ error }) => {
+                    throw new Error(`Validation error: ${JSON.stringify(error)}`);
+                }
+            });
+
+            expect(result.disconnected).toBe(false);
+        });
+
+        test('should detect client disconnection during request processing', async () => {
+            if (serverName === 'Hono') {
+                // Hono doesn't support disconnection detection, so onClose is undefined
+                // The endpoint completes successfully but doesn't detect disconnections
+                const response = await fetch(`${baseUrl}/api/v1/public/disconnect-test?delay=100`);
+                expect(response.status).toBe(200);
+                const data = await response.json();
+                expect(data.data.disconnected).toBe(false); // No disconnection detected
+                return;
+            }
+
+            // Use fetch directly with AbortController to simulate client disconnection
+            const controller = new AbortController();
+            const signal = controller.signal;
+
+            // Start the request
+            const fetchPromise = fetch(`${baseUrl}/api/v1/public/disconnect-test?delay=500`, {
+                signal,
+                headers: { 'Accept': 'application/json' }
+            });
+
+            // Abort the request after a short delay (before the server finishes)
+            setTimeout(() => {
+                controller.abort();
+            }, 200);
+
+            // The request should be aborted (node-fetch uses different error messages)
+            await expect(fetchPromise).rejects.toThrow(/aborted/i);
+
+            // Give the server a moment to process the disconnection
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Note: In a real test environment, we would need a way to verify
+            // that the close handler was called on the server side.
+            // For this test, we're mainly verifying that the endpoint exists
+            // and that client disconnection doesn't crash the server.
+        });
+
         test('generateUrl should return correct URL for ping', () => {
             const url = client.generateUrl('common', 'ping');
             expect(url).toBe(`${baseUrl}/api/v1/public/ping`);

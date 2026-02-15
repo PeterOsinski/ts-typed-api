@@ -50,6 +50,25 @@ const simplePublicHandlers = {
 
             // Close the stream
             res.endStream();
+        },
+        disconnectTest: async (req: any, res: any) => {
+            const delay = req.query?.delay || 1000;
+            let disconnected = false;
+
+            // Set up disconnection handler using unified API
+            req.onClose?.(() => {
+                console.log('Client disconnected during disconnect-test');
+                disconnected = true;
+            });
+
+            // Simulate long-running operation
+            await new Promise(resolve => setTimeout(resolve, delay));
+
+            // Check if client disconnected during the delay
+            res.respond(200, {
+                message: disconnected ? 'Client disconnected' : 'Operation completed',
+                disconnected
+            });
         }
     },
     status: {

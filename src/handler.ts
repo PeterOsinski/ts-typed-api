@@ -401,28 +401,39 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                     : expressReq.body;
 
                 // Construct TypedRequest using TDef, currentDomain, currentRouteKey
-                const finalTypedReq = {
-                    ...expressReq,
-                    params: parsedParams,
-                    query: parsedQuery,
-                    body: parsedBody,
-                    ctx: (expressReq as any).ctx,
-                    headers: expressReq.headers,
-                    cookies: expressReq.cookies,
-                    ip: expressReq.ip,
-                    ips: expressReq.ips,
-                    hostname: expressReq.hostname,
-                    protocol: expressReq.protocol,
-                    secure: expressReq.secure,
-                    xhr: expressReq.xhr,
-                    fresh: expressReq.fresh,
-                    stale: expressReq.stale,
-                    subdomains: expressReq.subdomains,
-                    path: expressReq.path,
-                    originalUrl: expressReq.originalUrl,
-                    baseUrl: expressReq.baseUrl,
-                    url: expressReq.url,
-                } as TypedRequest<TDef, typeof currentDomain, typeof currentRouteKey>;
+                // Create a new object that inherits from expressReq to preserve prototype methods like .on()
+                const finalTypedReq = Object.create(expressReq, {
+                    // Core parsed/validated properties
+                    params: { value: parsedParams, writable: true, enumerable: true, configurable: true },
+                    query: { value: parsedQuery, writable: true, enumerable: true, configurable: true },
+                    body: { value: parsedBody, writable: true, enumerable: true, configurable: true },
+                    ctx: { value: (expressReq as any).ctx, writable: true, enumerable: true, configurable: true },
+
+                    // Unified API for client disconnection
+                    onClose: {
+                        value: (callback: () => void) => expressReq.on('close', callback),
+                        writable: false,
+                        enumerable: true,
+                        configurable: false
+                    },
+
+                    // Restore original Express request properties for full compatibility
+                    headers: { value: expressReq.headers, writable: false, enumerable: true, configurable: false },
+                    cookies: { value: expressReq.cookies, writable: false, enumerable: true, configurable: false },
+                    ip: { value: expressReq.ip, writable: false, enumerable: true, configurable: false },
+                    ips: { value: expressReq.ips, writable: false, enumerable: true, configurable: false },
+                    hostname: { value: expressReq.hostname, writable: false, enumerable: true, configurable: false },
+                    protocol: { value: expressReq.protocol, writable: false, enumerable: true, configurable: false },
+                    secure: { value: expressReq.secure, writable: false, enumerable: true, configurable: false },
+                    xhr: { value: expressReq.xhr, writable: false, enumerable: true, configurable: false },
+                    fresh: { value: expressReq.fresh, writable: false, enumerable: true, configurable: false },
+                    stale: { value: expressReq.stale, writable: false, enumerable: true, configurable: false },
+                    subdomains: { value: expressReq.subdomains, writable: false, enumerable: true, configurable: false },
+                    path: { value: expressReq.path, writable: false, enumerable: true, configurable: false },
+                    originalUrl: { value: expressReq.originalUrl, writable: false, enumerable: true, configurable: false },
+                    baseUrl: { value: expressReq.baseUrl, writable: false, enumerable: true, configurable: false },
+                    url: { value: expressReq.url, writable: false, enumerable: true, configurable: false },
+                }) as TypedRequest<TDef, typeof currentDomain, typeof currentRouteKey>;
 
                 // Augment expressRes with the .respond and .setHeader methods, using TDef
                 const typedExpressRes = expressRes as TypedResponse<TDef, typeof currentDomain, typeof currentRouteKey>;
