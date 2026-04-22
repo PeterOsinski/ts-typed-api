@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiDefinitionSchema, RouteSchema, UnifiedError, FileUploadConfig } from "./definition";
+import { ApiDefinitionSchema, RouteSchema, UnifiedError, FileUploadConfig, ErrorHandler } from "./definition";
 import { createRouteHandler, TypedRequest, TypedResponse } from "./router";
 import { MiddlewareResponse } from "./object-handlers";
 import express from "express";
@@ -350,7 +350,8 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
     app: express.Express,
     apiDefinition: TDef, // Pass the actual API definition object
     routeHandlers: Array<SpecificRouteHandler<TDef>>, // Use the generic handler type
-    middlewares?: EndpointMiddleware<TDef>[]
+    middlewares?: EndpointMiddleware<TDef>[],
+    errorHandler?: ErrorHandler
 ) {
     routeHandlers.forEach((specificHandlerIterationItem) => {
         const { domain, routeKey, handler } = specificHandlerIterationItem as any; // Use 'as any' for simplicity in destructuring union
@@ -541,6 +542,15 @@ export function registerRouteHandlers<TDef extends ApiDefinitionSchema>(
                 await specificHandlerFn(finalTypedReq, typedExpressRes);
 
             } catch (error) {
+                // Check if custom error handler is provided
+                if (errorHandler) {
+                    const handled = errorHandler(error, routeDefinition, method, path, expressRes);
+                    if (handled) {
+                        return; // Error was handled by custom handler
+                    }
+                }
+
+                // Default error handling
                 if (error instanceof z.ZodError) {
                     const mappedErrors: UnifiedError = error.issues.map(err => {
                         let errorType: 'param' | 'query' | 'body' | 'general' = 'general';

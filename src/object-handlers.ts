@@ -125,7 +125,8 @@ export function RegisterHandlers<
     app: express.Express,
     apiDefinition: TDef,
     objectHandlers: ObjectHandlers<TDef, Ctx>,
-    middlewares?: AnyMiddleware<TDef>[]
+    middlewares?: AnyMiddleware<TDef>[],
+    errorHandler?: import('./definition').ErrorHandler
 ): void {
     const handlerArray = transformObjectHandlersToArray(objectHandlers);
 
@@ -143,7 +144,7 @@ export function RegisterHandlers<
         }
     }) || [];
 
-    registerRouteHandlers(app, apiDefinition, handlerArray, endpointMiddlewares);
+    registerRouteHandlers(app, apiDefinition, handlerArray, endpointMiddlewares, errorHandler);
 }
 
 // Factory function to create a typed handler registrar for a specific API definition

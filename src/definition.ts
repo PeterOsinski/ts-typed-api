@@ -1,4 +1,5 @@
 import { z, ZodTypeAny, ZodType } from 'zod';
+import express from 'express';
 
 // Marker class for raw TypeScript types
 export class TsTypeMarker<T> {
@@ -29,6 +30,15 @@ const errorDetailSchema = z.object({
 // Define the schema for the error list
 const unifiedErrorSchema = z.array(errorDetailSchema).nullable(); // Nullable if no errors
 export type UnifiedError = z.infer<typeof unifiedErrorSchema>;
+
+// Type for custom error handler function
+export type ErrorHandler = (
+    error: unknown,
+    routeDefinition: RouteSchema,
+    method: string,
+    path: string,
+    expressRes: express.Response
+) => boolean | void; // Return true if handled, void/null to use default
 
 // Helper function to create the success-specific unified response schema
 // This wraps the original data schema with a 'data' field and sets 'error' to null.
